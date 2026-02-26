@@ -9,6 +9,7 @@ import AnalyticsPage from "./pages/AnalyticsPage";
 import SettingsPage from "./pages/SettingsPage";
 import GoalsPage from "./pages/GoalsPage";
 import DailyRoutinePage from "./pages/DailyRoutinePage";
+import MoneyTrackerPage from "./pages/MoneyTrackerPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardLayout from "./components/DashboardLayout";
 import { useAuth } from "./context/AuthContext";
@@ -69,6 +70,10 @@ function App() {
             element={<DailyRoutinePage darkMode={darkMode} />}
           />
           <Route path="/tasks" element={<TasksPage darkMode={darkMode} />} />
+          <Route
+            path="/finances"
+            element={<MoneyTrackerPage darkMode={darkMode} />}
+          />
           <Route
             path="/analytics"
             element={<AnalyticsPage darkMode={darkMode} />}

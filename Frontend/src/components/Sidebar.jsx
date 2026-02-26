@@ -10,6 +10,7 @@ import {
   Settings as SettingsIcon,
   Trophy as GoalIcon,
   CalendarDays as RoutineIcon,
+  Wallet as WalletIcon,
   LogOut,
 } from "lucide-react";
 
@@ -29,6 +30,7 @@ const NAV_GROUPS = [
       { name: "Tasks", path: "/tasks", icon: TaskIcon },
       { name: "Goals", path: "/goals", icon: GoalIcon },
       { name: "Routine", path: "/routine", icon: RoutineIcon },
+      { name: "Finances", path: "/finances", icon: WalletIcon },
     ],
   },
   {

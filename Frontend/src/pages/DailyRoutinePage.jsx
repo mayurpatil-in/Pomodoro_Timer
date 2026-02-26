@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+﻿import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -868,11 +868,17 @@ export default function DailyRoutinePage({ darkMode }) {
   const currentFloatHour = now.getHours() + now.getMinutes() / 60;
   const isSelectedToday = dateISO === toISO(now);
 
+  // ── Progress percentage for completion bar ──
+  const completionPct =
+    totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
   return (
-    <div className="flex flex-col xl:flex-row gap-6 w-full min-h-full">
-      {/* ── Left Panel: Calendar + Day Info ── */}
+    <div className="flex flex-col xl:flex-row gap-5 w-full min-h-full">
+      {/* ════════════════════════════════════════════════════════════
+          Left Panel: Calendar + Analytics
+      ════════════════════════════════════════════════════════════ */}
       <div className="xl:w-72 flex-shrink-0 flex flex-col gap-4">
-        {/* Calendar */}
+        {/* Mini Calendar */}
         <MiniCalendar
           selected={selectedDate}
           onSelect={setSelectedDate}
@@ -880,246 +886,293 @@ export default function DailyRoutinePage({ darkMode }) {
           darkMode={darkMode}
         />
 
+        {/* Day Summary Card */}
         <div
-          className={`rounded-2xl border p-4 ${darkMode ? "bg-slate-900/40 border-white/5" : "bg-white border-slate-100 shadow-sm"}`}
+          className={`rounded-2xl border overflow-hidden ${darkMode ? "bg-gradient-to-br from-slate-900 to-slate-900/60 border-white/5" : "bg-gradient-to-br from-white to-slate-50 border-slate-200 shadow-sm"}`}
         >
-          <p
-            className={`text-xs font-semibold uppercase tracking-wider mb-1 ${darkMode ? "text-slate-500" : "text-slate-400"}`}
-          >
-            Selected Date
-          </p>
-          <p
-            className={`text-lg font-bold font-inter ${darkMode ? "text-white" : "text-slate-800"}`}
-          >
-            {selectedDate.toLocaleDateString("en-US", { weekday: "long" })}
-          </p>
-          <p
-            className={`text-sm font-outfit ${darkMode ? "text-slate-400" : "text-slate-500"}`}
-          >
-            {selectedDate.toLocaleDateString("en-US", {
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            })}
-          </p>
-        </div>
-
-        {/* Category Analytics */}
-        <div
-          className={`rounded-2xl border p-5 ${darkMode ? "bg-slate-900/40 border-white/5" : "bg-white border-slate-100 shadow-sm"}`}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <h3
-              className={`text-xs font-semibold uppercase tracking-wider ${darkMode ? "text-slate-500" : "text-slate-400"}`}
-            >
-              Category Breakdown
-            </h3>
-            <span
-              className={`text-[10px] font-outfit uppercase px-1.5 py-0.5 rounded border ${darkMode ? "border-white/10 text-slate-500" : "border-slate-200 text-slate-400"}`}
-            >
-              Today
-            </span>
-          </div>
-
-          <CategoryRingChart entries={entries} darkMode={darkMode} />
-        </div>
-      </div>
-
-      {/* ── Right Panel: Time Grid ── */}
-      <div className="flex-1 flex flex-col gap-4 min-w-0">
-        {/* Header */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h2
-              className={`text-xl font-bold font-inter ${darkMode ? "text-white" : "text-slate-900"}`}
-            >
-              Daily Routine
-            </h2>
+          {/* Accent strip */}
+          <div className="h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
+          <div className="p-4">
             <p
-              className={`text-xs font-outfit ${darkMode ? "text-slate-500" : "text-slate-400"}`}
+              className={`text-[10px] font-semibold uppercase tracking-widest mb-1 ${darkMode ? "text-slate-500" : "text-slate-400"}`}
+            >
+              Selected Day
+            </p>
+            <p
+              className={`text-lg font-extrabold font-inter leading-tight ${darkMode ? "text-white" : "text-slate-900"}`}
+            >
+              {selectedDate.toLocaleDateString("en-US", { weekday: "long" })}
+            </p>
+            <p
+              className={`text-xs font-outfit mt-0.5 ${darkMode ? "text-slate-400" : "text-slate-500"}`}
             >
               {selectedDate.toLocaleDateString("en-US", {
-                weekday: "long",
                 day: "numeric",
                 month: "long",
                 year: "numeric",
               })}
             </p>
-          </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            {/* Template Selector Dropdown */}
-            {templates.length > 0 && (
-              <select
-                onChange={loadTemplate}
-                defaultValue=""
-                disabled={saving}
-                className={`flex-1 sm:flex-none px-3 py-2.5 rounded-xl text-sm font-medium font-outfit transition-all border outline-none appearance-none cursor-pointer ${
-                  darkMode
-                    ? "bg-slate-800 border-white/5 text-slate-300 hover:bg-slate-700"
-                    : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm"
-                }`}
-              >
-                <option value="" disabled>
-                  Load Template...
-                </option>
-                {templates.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
+
+            {/* Completion progress bar */}
+            {totalCount > 0 && (
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span
+                    className={`text-[10px] font-outfit font-semibold uppercase tracking-wider ${darkMode ? "text-slate-500" : "text-slate-400"}`}
+                  >
+                    Day Progress
+                  </span>
+                  <span
+                    className={`text-[10px] font-inter font-bold ${completionPct === 100 ? "text-emerald-500" : darkMode ? "text-indigo-400" : "text-indigo-600"}`}
+                  >
+                    {completionPct}%
+                  </span>
+                </div>
+                <div
+                  className={`h-1.5 rounded-full overflow-hidden ${darkMode ? "bg-slate-700/80" : "bg-slate-200"}`}
+                >
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${completionPct === 100 ? "bg-emerald-500" : "bg-gradient-to-r from-indigo-500 to-purple-500"}`}
+                    style={{ width: `${completionPct}%` }}
+                  />
+                </div>
+                <p
+                  className={`text-[10px] font-outfit mt-1 ${darkMode ? "text-slate-600" : "text-slate-400"}`}
+                >
+                  {completedCount} of {totalCount} activities done
+                </p>
+              </div>
             )}
-
-            {/* Copy Yesterday */}
-            {totalCount === 0 && (
-              <button
-                onClick={copyYesterday}
-                className={`flex justify-center items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium font-outfit transition-all border ${
-                  darkMode
-                    ? "bg-slate-800 border-white/5 text-slate-300 hover:bg-slate-700"
-                    : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm"
-                }`}
-              >
-                <Copy size={15} />
-                <span className="hidden sm:inline">Copy Yesterday</span>
-              </button>
-            )}
-
-            {/* Save as Template */}
-            <button
-              onClick={() => setTemplateModal(true)}
-              disabled={totalCount === 0 || saving}
-              className={`flex justify-center items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium font-outfit transition-all border ${
-                darkMode
-                  ? "bg-slate-800 border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10 disabled:opacity-50"
-                  : "bg-indigo-50 border-indigo-200 text-indigo-600 hover:bg-indigo-100 shadow-sm disabled:opacity-50"
-              }`}
-              title="Save current layout as a reusable Template"
-            >
-              <Save size={15} />
-              <span className="hidden sm:inline">Save Template</span>
-            </button>
-
-            {/* Save Routine */}
-            <button
-              onClick={saveRoutine}
-              disabled={saving}
-              className={`flex justify-center items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium font-outfit text-white transition-all shadow-md mt-2 sm:mt-0 ${
-                saved
-                  ? "bg-emerald-500 shadow-emerald-500/20"
-                  : "bg-indigo-500 hover:bg-indigo-400 shadow-indigo-500/20 disabled:opacity-60"
-              }`}
-            >
-              <Save size={15} />
-              {saving ? "Saving..." : saved ? "Saved! ✓" : "Save Routine"}
-            </button>
           </div>
         </div>
 
-        {/* Horizontal Stat Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-2">
-          {/* Card 1: Total Activities */}
-          <div
-            className={`p-4 rounded-2xl border flex items-center gap-4 ${darkMode ? "bg-slate-900 flex border-white/5" : "bg-white border-slate-100 shadow-sm"}`}
-          >
-            <div
-              className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${darkMode ? "bg-indigo-500/20 text-indigo-400" : "bg-indigo-50 text-indigo-600"}`}
+        {/* Category Analytics */}
+        <div
+          className={`rounded-2xl border p-5 ${darkMode ? "bg-slate-900/40 border-white/5" : "bg-white border-slate-200 shadow-sm"}`}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3
+              className={`text-xs font-bold uppercase tracking-widest ${darkMode ? "text-slate-400" : "text-slate-500"}`}
             >
-              <ListTodo size={24} />
-            </div>
-            <div>
-              <p
-                className={`text-xs font-semibold uppercase tracking-wider mb-0.5 ${darkMode ? "text-slate-500" : "text-slate-400"}`}
-              >
-                Planned
-              </p>
-              <p
-                className={`text-xl font-bold font-inter ${darkMode ? "text-white" : "text-slate-800"}`}
-              >
-                {totalCount}
-              </p>
-            </div>
+              Category Breakdown
+            </h3>
+            <span
+              className={`text-[9px] font-outfit font-semibold uppercase px-2 py-0.5 rounded-full border ${darkMode ? "border-white/10 text-slate-500 bg-white/5" : "border-slate-200 text-slate-400 bg-slate-50"}`}
+            >
+              Today
+            </span>
           </div>
+          <CategoryRingChart entries={entries} darkMode={darkMode} />
+        </div>
+      </div>
 
-          {/* Card 2: Completed */}
-          <div
-            className={`p-4 rounded-2xl border flex items-center gap-4 ${darkMode ? "bg-slate-900 border-white/5" : "bg-white border-slate-100 shadow-sm"}`}
-          >
-            <div
-              className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${darkMode ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-50 text-emerald-600"}`}
-            >
-              <CheckCircle2 size={24} />
-            </div>
-            <div>
-              <p
-                className={`text-xs font-semibold uppercase tracking-wider mb-0.5 ${darkMode ? "text-slate-500" : "text-slate-400"}`}
+      {/* ════════════════════════════════════════════════════════════
+          Right Panel: Header + Stats + Time Grid
+      ════════════════════════════════════════════════════════════ */}
+      <div className="flex-1 flex flex-col gap-5 min-w-0">
+        {/* ── Header ── */}
+        <div
+          className={`rounded-2xl border overflow-hidden ${darkMode ? "bg-gradient-to-r from-indigo-900/40 via-slate-900/50 to-purple-900/30 border-white/5" : "bg-gradient-to-r from-indigo-50 via-white to-purple-50 border-indigo-100 shadow-sm"}`}
+        >
+          <div className="px-5 py-4 flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ${darkMode ? "bg-indigo-500/20 text-indigo-400" : "bg-indigo-100 text-indigo-600"}`}
               >
-                Completed
-              </p>
-              <div className="flex items-baseline gap-1.5">
-                <p
-                  className={`text-xl font-bold font-inter ${darkMode ? "text-white" : "text-slate-800"}`}
+                <Timer size={20} />
+              </div>
+              <div>
+                <h2
+                  className={`text-xl font-extrabold font-inter leading-tight ${darkMode ? "text-white" : "text-slate-900"}`}
                 >
-                  {completedCount}
+                  Daily Routine
+                </h2>
+                <p
+                  className={`text-xs font-outfit ${darkMode ? "text-indigo-300/60" : "text-indigo-500/70"}`}
+                >
+                  {selectedDate.toLocaleDateString("en-US", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}
                 </p>
               </div>
             </div>
-          </div>
 
-          {/* Card 3: Total Planned Duration */}
-          <div
-            className={`p-4 rounded-2xl border flex items-center gap-4 ${darkMode ? "bg-slate-900 border-white/5" : "bg-white border-slate-100 shadow-sm"}`}
-          >
-            <div
-              className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${darkMode ? "bg-blue-500/20 text-blue-400" : "bg-blue-50 text-blue-600"}`}
-            >
-              <Hourglass size={24} />
-            </div>
-            <div>
-              <p
-                className={`text-xs font-semibold uppercase tracking-wider mb-0.5 ${darkMode ? "text-slate-500" : "text-slate-400"}`}
-              >
-                Total Time
-              </p>
-              <p
-                className={`text-lg font-bold font-inter ${darkMode ? "text-white" : "text-slate-800"}`}
-              >
-                {hmPlannedFormat}
-              </p>
-            </div>
-          </div>
+            {/* Action buttons */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Template Selector */}
+              {templates.length > 0 && (
+                <select
+                  onChange={loadTemplate}
+                  defaultValue=""
+                  disabled={saving}
+                  className={`px-3 py-2 rounded-xl text-xs font-medium font-outfit transition-all border outline-none appearance-none cursor-pointer ${
+                    darkMode
+                      ? "bg-slate-800/80 border-white/8 text-slate-300 hover:bg-slate-700"
+                      : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm"
+                  }`}
+                >
+                  <option value="" disabled>
+                    📋 Load Template…
+                  </option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              )}
 
-          {/* Card 4: Focus Time */}
-          <div
-            className={`p-4 rounded-2xl border flex items-center gap-4 ${darkMode ? "bg-slate-900 border-white/5" : "bg-white border-slate-100 shadow-sm"}`}
-          >
-            <div
-              className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${darkMode ? "bg-amber-500/20 text-amber-400" : "bg-amber-50 text-amber-600"}`}
-            >
-              <Clock size={24} />
-            </div>
-            <div>
-              <p
-                className={`text-xs font-semibold uppercase tracking-wider mb-0.5 ${darkMode ? "text-slate-500" : "text-slate-400"}`}
+              {/* Copy Yesterday */}
+              {totalCount === 0 && (
+                <button
+                  onClick={copyYesterday}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold font-outfit transition-all border ${
+                    darkMode
+                      ? "bg-slate-800/80 border-white/8 text-slate-300 hover:bg-slate-700"
+                      : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm"
+                  }`}
+                >
+                  <Copy size={13} />
+                  <span>Copy Yesterday</span>
+                </button>
+              )}
+
+              {/* Save Template */}
+              <button
+                onClick={() => setTemplateModal(true)}
+                disabled={totalCount === 0 || saving}
+                title="Save current layout as a reusable Template"
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold font-outfit transition-all border ${
+                  darkMode
+                    ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 disabled:opacity-40"
+                    : "bg-indigo-50 border-indigo-200 text-indigo-600 hover:bg-indigo-100 shadow-sm disabled:opacity-40"
+                }`}
               >
-                Focus Time
-              </p>
-              <p
-                className={`text-lg font-bold font-inter ${darkMode ? "text-white" : "text-slate-800"}`}
+                <ListTodo size={13} />
+                <span>Save Template</span>
+              </button>
+
+              {/* Save Routine */}
+              <button
+                onClick={saveRoutine}
+                disabled={saving}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold font-outfit text-white transition-all shadow-md ${
+                  saved
+                    ? "bg-emerald-500 shadow-emerald-500/20"
+                    : "bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 shadow-indigo-500/20 disabled:opacity-60"
+                }`}
               >
-                {hmFormat}
-              </p>
+                {saving ? (
+                  <svg
+                    className="animate-spin w-3.5 h-3.5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    />
+                  </svg>
+                ) : saved ? (
+                  <Check size={13} strokeWidth={3} />
+                ) : (
+                  <Save size={13} />
+                )}
+                {saving ? "Saving…" : saved ? "Saved!" : "Save Routine"}
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Time Grid */}
+        {/* ── Stat Cards ── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            {
+              label: "Planned",
+              value: totalCount,
+              unit: "tasks",
+              icon: ListTodo,
+              color: darkMode
+                ? "from-indigo-500/20 to-indigo-800/10 border-indigo-500/15 text-indigo-400"
+                : "from-indigo-50 to-indigo-100/50 border-indigo-200 text-indigo-600",
+            },
+            {
+              label: "Completed",
+              value: completedCount,
+              unit: `/ ${totalCount}`,
+              icon: CheckCircle2,
+              color: darkMode
+                ? "from-emerald-500/20 to-emerald-800/10 border-emerald-500/15 text-emerald-400"
+                : "from-emerald-50 to-emerald-100/50 border-emerald-200 text-emerald-600",
+            },
+            {
+              label: "Planned Time",
+              value: hmPlannedFormat,
+              unit: null,
+              icon: Hourglass,
+              color: darkMode
+                ? "from-blue-500/20 to-blue-800/10 border-blue-500/15 text-blue-400"
+                : "from-blue-50 to-blue-100/50 border-blue-200 text-blue-600",
+            },
+            {
+              label: "Focus Time",
+              value: hmFormat,
+              unit: null,
+              icon: Clock,
+              color: darkMode
+                ? "from-amber-500/20 to-amber-800/10 border-amber-500/15 text-amber-400"
+                : "from-amber-50 to-amber-100/50 border-amber-200 text-amber-600",
+            },
+          ].map(({ label, value, unit, icon: Icon, color }) => (
+            <div
+              key={label}
+              className={`p-4 rounded-2xl border bg-gradient-to-br ${color} flex items-center gap-3 transition-all`}
+            >
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-white/10 backdrop-blur-sm">
+                <Icon size={20} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5 opacity-70">
+                  {label}
+                </p>
+                <div className="flex items-baseline gap-1">
+                  <p
+                    className={`text-xl font-extrabold font-inter leading-none ${darkMode ? "text-white" : "text-slate-800"}`}
+                  >
+                    {value}
+                  </p>
+                  {unit && (
+                    <span
+                      className={`text-[10px] font-outfit opacity-60 ${darkMode ? "text-slate-300" : "text-slate-600"}`}
+                    >
+                      {unit}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Time Grid ── */}
         <div
-          className={`rounded-2xl border overflow-hidden ${darkMode ? "border-white/5" : "border-slate-200"}`}
+          className={`rounded-2xl border overflow-hidden flex-1 ${darkMode ? "border-white/5 bg-slate-900/30" : "border-slate-200 shadow-sm bg-white"}`}
         >
-          {/* Grid header */}
+          {/* Grid Header */}
           <div
-            className={`hidden sm:grid sm:grid-cols-[90px_1fr_160px] md:grid-cols-[110px_1fr_240px] text-[10px] font-semibold uppercase tracking-wider px-4 py-2.5 border-b ${
+            className={`hidden sm:grid sm:grid-cols-[100px_1fr_180px] md:grid-cols-[120px_1fr_220px] text-[10px] font-bold uppercase tracking-widest px-5 py-3 border-b ${
               darkMode
                 ? "bg-slate-800/60 border-white/5 text-slate-500"
                 : "bg-slate-50 border-slate-200 text-slate-400"
@@ -1130,7 +1183,7 @@ export default function DailyRoutinePage({ darkMode }) {
             <span className="text-right">Duration / Actions</span>
           </div>
 
-          {/* Time container. We remove divide-y and manage borders per-slot for spanning blocks */}
+          {/* Slots */}
           <div className="flex flex-col">
             {TIME_SLOTS.map((slot) => {
               const entry = entries[slot.key];
@@ -1146,8 +1199,6 @@ export default function DailyRoutinePage({ darkMode }) {
                 currentFloatHour < slotEnd;
 
               // ── Visual Merging Logic ──
-              // We consider adjacent blocks "identical" if they share the same title, category, note, and completion status.
-              // Empty slots are never identical to anything.
               const prevSlot = TIME_SLOTS[TIME_SLOTS.indexOf(slot) - 1];
               const nextSlot = TIME_SLOTS[TIME_SLOTS.indexOf(slot) + 1];
               const prevEntry = prevSlot ? entries[prevSlot.key] : null;
@@ -1163,10 +1214,8 @@ export default function DailyRoutinePage({ darkMode }) {
                 );
               };
 
-              // Determine placement in contiguous block sequence
               const sameAsPrev = isIdentical(entry, prevEntry);
               const sameAsNext = isIdentical(entry, nextEntry);
-
               const isFirstOfGroup = entry && !sameAsPrev && sameAsNext;
               const isMiddleOfGroup = entry && sameAsPrev && sameAsNext;
               const isLastOfGroup = entry && sameAsPrev && !sameAsNext;
@@ -1182,103 +1231,109 @@ export default function DailyRoutinePage({ darkMode }) {
                   onDragOver={handleDragOver}
                   onDrop={(e) => handleDrop(e, slot.key)}
                   onDragEnd={handleDragEnd}
-                  className={`group grid grid-cols-[80px_1fr] sm:grid-cols-[90px_1fr_160px] md:grid-cols-[110px_1fr_240px] items-center px-3 sm:px-4 py-2.5 sm:py-3 transition-all gap-x-3 gap-y-1.5 sm:gap-3 relative overflow-hidden ${
+                  className={`group relative grid grid-cols-[80px_1fr] sm:grid-cols-[100px_1fr_180px] md:grid-cols-[120px_1fr_220px] items-center px-4 sm:px-5 py-3 transition-all gap-x-3 gap-y-1.5 sm:gap-3 overflow-hidden ${
+                    darkMode
+                      ? "border-b border-white/[0.035]"
+                      : "border-b border-slate-100"
+                  } ${sameAsPrev ? "border-t-0" : ""} ${
+                    sameAsNext ? "!border-b-0" : ""
+                  } ${
                     draggedSlotKey === slot.key
-                      ? "opacity-40 scale-[0.98] z-50 border border-indigo-500 shadow-xl shadow-indigo-500/10"
+                      ? "opacity-40 ring-2 ring-indigo-500"
                       : ""
                   } ${
                     entry?.completed
                       ? darkMode
-                        ? "bg-emerald-900/10 opacity-70"
-                        : "bg-emerald-50/50 opacity-80"
+                        ? "bg-emerald-900/5"
+                        : "bg-emerald-50/40"
                       : entry
-                        ? darkMode
-                          ? "bg-slate-800/40"
-                          : "bg-slate-50/50"
+                        ? isGrouped
+                          ? darkMode
+                            ? "!bg-slate-800/60"
+                            : "!bg-slate-50/80"
+                          : darkMode
+                            ? "bg-slate-800/30"
+                            : "bg-white"
                         : darkMode
-                          ? "hover:bg-white/[0.02] cursor-pointer"
-                          : "hover:bg-slate-50/70 cursor-pointer"
-                  } ${
-                    darkMode
-                      ? "border-b border-white/[0.04]"
-                      : "border-b border-slate-200"
-                  } ${
-                    // Subtly link background color for spanned blocks
-                    isGrouped
-                      ? darkMode
-                        ? "!bg-slate-800/60 " +
-                          (sameAsPrev ? "border-t-0" : "") +
-                          (sameAsNext ? "!border-b-0" : "")
-                        : "!bg-slate-50/70 " +
-                          (sameAsPrev ? "border-t-0" : "") +
-                          (sameAsNext ? "!border-b-0" : "")
-                      : ""
+                          ? "hover:bg-white/[0.015] cursor-pointer"
+                          : "hover:bg-slate-50/80 cursor-pointer"
                   }`}
                 >
-                  {/* Vertical left border for grouped slots */}
-                  {isGrouped && (
+                  {/* Active time glow */}
+                  {isActiveSlot && (
+                    <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-indigo-500 shadow-[2px_0_12px_theme('colors.indigo.500')] z-10" />
+                  )}
+
+                  {/* Grouped block left bar */}
+                  {isGrouped && !isActiveSlot && (
                     <div
                       className="absolute left-0 top-0 bottom-0 w-[3px]"
                       style={{ backgroundColor: cat.hex }}
                     />
                   )}
-                  {/* Active slot indicator line */}
-                  {isActiveSlot && (
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 shadow-[0_0_12px_theme('colors.indigo.500')] z-10" />
-                  )}
 
-                  {/* Time / Checkbox */}
-                  <div className="flex items-center gap-2">
+                  {/* ── Col 1: Time + Checkbox ── */}
+                  <div
+                    className={`flex items-center gap-2 ${isGrouped ? "pl-2" : ""}`}
+                  >
                     {entry && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           toggleComplete(slot.key);
                         }}
-                        className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 transition-all ${
+                        className={`w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 transition-all ${
                           entry.completed
-                            ? "bg-emerald-500 text-white"
+                            ? "bg-emerald-500 text-white shadow-sm shadow-emerald-500/30"
                             : darkMode
-                              ? "border-2 border-slate-600 hover:border-emerald-500"
+                              ? "border-2 border-slate-600 hover:border-emerald-400"
                               : "border-2 border-slate-300 hover:border-emerald-500"
                         }`}
                       >
-                        {entry.completed && <Check size={12} strokeWidth={3} />}
+                        {entry.completed && <Check size={11} strokeWidth={3} />}
                       </button>
                     )}
                     <div className={entry ? "" : "ml-7"}>
                       <p
-                        className={`text-[10px] sm:text-xs font-bold font-inter tabular-nums transition-colors whitespace-nowrap ${isActiveSlot ? "text-indigo-500" : entry?.completed ? (darkMode ? "text-slate-500 line-through" : "text-slate-400 line-through") : darkMode ? "text-slate-300" : "text-slate-700"}`}
+                        className={`text-[10px] sm:text-xs font-bold font-inter tabular-nums whitespace-nowrap ${
+                          isActiveSlot
+                            ? "text-indigo-500"
+                            : entry?.completed
+                              ? darkMode
+                                ? "text-slate-500 line-through"
+                                : "text-slate-400 line-through"
+                              : darkMode
+                                ? "text-slate-300"
+                                : "text-slate-700"
+                        }`}
                       >
                         {slot.label}
                       </p>
                       <p
-                        className={`text-[9px] sm:text-[10px] font-outfit transition-colors whitespace-nowrap ${entry?.completed ? "opacity-50" : ""} ${darkMode ? "text-slate-600" : "text-slate-400"}`}
+                        className={`text-[9px] sm:text-[10px] font-outfit whitespace-nowrap ${entry?.completed ? "opacity-40" : ""} ${darkMode ? "text-slate-600" : "text-slate-400"}`}
                       >
                         – {slot.endLabel}
                       </p>
                     </div>
                   </div>
 
-                  {/* Activity */}
+                  {/* ── Col 2: Activity ── */}
                   <div
                     className={`min-w-0 transition-opacity ${entry?.completed ? "opacity-50" : ""}`}
                   >
                     {entry ? (
                       <div
-                        className={`flex flex-col sm:flex-row sm:items-center gap-2 mb-0.5 sm:mb-0 transition-all ${sameAsPrev ? "opacity-0 h-0 sm:h-auto overflow-hidden pointer-events-none" : "opacity-100"}`}
+                        className={`flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 transition-all ${sameAsPrev ? "opacity-0 h-0 overflow-hidden pointer-events-none" : "opacity-100"}`}
                       >
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold font-outfit shrink-0 ${darkMode ? cat.dark : cat.light}`}
-                          >
-                            <CatIcon size={11} />
-                            {cat.label}
-                          </span>
-                        </div>
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold font-outfit flex-shrink-0 ${darkMode ? cat.dark : cat.light}`}
+                        >
+                          <CatIcon size={11} />
+                          {cat.label}
+                        </span>
                         <div className="min-w-0">
                           <p
-                            className={`text-sm font-medium font-inter truncate ${darkMode ? "text-slate-200" : "text-slate-700"} ${draggedSlotKey === slot.key ? "text-indigo-400" : ""}`}
+                            className={`text-sm font-semibold font-inter truncate ${darkMode ? "text-slate-100" : "text-slate-800"} ${draggedSlotKey === slot.key ? "text-indigo-400" : ""}`}
                           >
                             {entry.title}
                           </p>
@@ -1293,7 +1348,7 @@ export default function DailyRoutinePage({ darkMode }) {
                       </div>
                     ) : (
                       <div
-                        className={`flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity text-xs font-outfit ${darkMode ? "text-slate-600" : "text-slate-400"}`}
+                        className={`flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity text-xs font-outfit ${darkMode ? "text-slate-600" : "text-slate-400"}`}
                       >
                         <Plus size={13} />
                         Click to add activity
@@ -1301,17 +1356,18 @@ export default function DailyRoutinePage({ darkMode }) {
                     )}
                   </div>
 
-                  {/* Duration / Actions */}
+                  {/* ── Col 3: Duration / Actions ── */}
                   <div
                     className={`${entry ? "flex" : "hidden sm:flex"} col-start-2 sm:col-auto items-center justify-start sm:justify-end flex-wrap sm:flex-nowrap gap-1.5 sm:gap-2 w-full mt-0.5 sm:mt-0`}
                   >
                     {entry ? (
                       <>
+                        {/* Timer widget */}
                         {activeTimer?.slotKey === slot.key ? (
                           <div
-                            className={`flex items-center gap-1 sm:gap-1.5 mr-0 sm:mr-2 px-1.5 sm:px-2 py-1 rounded-lg flex-shrink-0 ${darkMode ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20" : "bg-indigo-50 text-indigo-700 border border-indigo-200"}`}
+                            className={`flex items-center gap-1 px-2 py-1 rounded-lg flex-shrink-0 ${darkMode ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20" : "bg-indigo-50 text-indigo-700 border border-indigo-200"}`}
                           >
-                            <span className="text-xs sm:text-sm font-bold tabular-nums font-inter">
+                            <span className="text-xs font-bold tabular-nums font-inter">
                               {formatTime(activeTimer.elapsedSeconds)}
                             </span>
                             <button
@@ -1322,7 +1378,7 @@ export default function DailyRoutinePage({ darkMode }) {
                                   isRunning: !p.isRunning,
                                 }));
                               }}
-                              className="p-1 hover:bg-black/10 rounded transition-colors"
+                              className="p-0.5 hover:bg-black/10 rounded transition-colors"
                             >
                               {activeTimer.isRunning ? (
                                 <PauseCircle size={14} />
@@ -1335,10 +1391,10 @@ export default function DailyRoutinePage({ darkMode }) {
                                 e.stopPropagation();
                                 stopAndSaveTimer();
                               }}
-                              className="p-1 hover:bg-black/10 rounded transition-colors"
-                              title="Stop timer and save duration"
+                              className="p-0.5 hover:bg-black/10 rounded transition-colors"
+                              title="Stop and save"
                             >
-                              <Square size={12} className="fill-current" />
+                              <Square size={11} className="fill-current" />
                             </button>
                           </div>
                         ) : (
@@ -1358,12 +1414,14 @@ export default function DailyRoutinePage({ darkMode }) {
                             }`}
                             title="Start Tracking Time"
                           >
-                            <PlayCircle size={14} />{" "}
+                            <PlayCircle size={14} />
                             <span className="hidden lg:inline">Start</span>
                           </button>
                         )}
+
+                        {/* Duration badge */}
                         <span
-                          className={`text-[10px] sm:text-xs font-outfit font-bold tabular-nums px-1.5 sm:px-2 py-1 rounded-lg flex items-center gap-1 whitespace-nowrap flex-shrink-0 ${darkMode ? "bg-slate-700/60 text-slate-400" : "bg-slate-100 text-slate-500"}`}
+                          className={`text-[10px] sm:text-xs font-outfit font-bold tabular-nums px-2 py-1 rounded-lg flex items-center gap-1 whitespace-nowrap flex-shrink-0 ${darkMode ? "bg-slate-700/60 text-slate-400" : "bg-slate-100 text-slate-500"}`}
                         >
                           {entry.elapsedSeconds > 0 ||
                           activeTimer?.slotKey === slot.key ? (
@@ -1390,13 +1448,15 @@ export default function DailyRoutinePage({ darkMode }) {
                             <span>{entry.duration}m</span>
                           )}
                         </span>
-                        <div className="flex items-center flex-shrink-0 gap-1">
+
+                        {/* Edit + Delete */}
+                        <div className="flex items-center gap-1 flex-shrink-0">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               setModal({ slot, entry });
                             }}
-                            className={`opacity-0 group-hover:opacity-100 p-1 rounded-lg transition-all text-[10px] sm:text-xs font-outfit font-medium ${darkMode ? "text-slate-500 hover:text-indigo-400 hover:bg-indigo-400/10" : "text-slate-400 hover:text-indigo-600 hover:bg-indigo-50"}`}
+                            className={`opacity-0 group-hover:opacity-100 p-1 rounded-lg transition-all text-[10px] sm:text-xs font-outfit font-medium ${darkMode ? "text-slate-500 hover:text-indigo-400 hover:bg-indigo-400/10" : "text-slate-300 hover:text-indigo-600 hover:bg-indigo-50"}`}
                           >
                             Edit
                           </button>
@@ -1414,7 +1474,7 @@ export default function DailyRoutinePage({ darkMode }) {
                     ) : (
                       <Plus
                         size={14}
-                        className={`opacity-0 group-hover:opacity-60 transition-opacity ${darkMode ? "text-slate-500" : "text-slate-400"}`}
+                        className={`opacity-0 group-hover:opacity-50 transition-opacity ${darkMode ? "text-slate-500" : "text-slate-400"}`}
                       />
                     )}
                   </div>
@@ -1437,7 +1497,7 @@ export default function DailyRoutinePage({ darkMode }) {
         />
       )}
 
-      {/* ── Template Name Prompt Modal ── */}
+      {/* ── Template Save Modal ── */}
       {templateModal && (
         <div
           className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
@@ -1447,6 +1507,11 @@ export default function DailyRoutinePage({ darkMode }) {
             className={`rounded-2xl border w-full max-w-sm p-6 shadow-2xl ${darkMode ? "bg-slate-900 border-white/10" : "bg-white border-slate-200"}`}
             onClick={(e) => e.stopPropagation()}
           >
+            <div
+              className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 ${darkMode ? "bg-indigo-500/20 text-indigo-400" : "bg-indigo-100 text-indigo-600"}`}
+            >
+              <ListTodo size={20} />
+            </div>
             <h3
               className={`font-inter font-bold text-base mb-1 ${darkMode ? "text-white" : "text-slate-800"}`}
             >
@@ -1457,7 +1522,6 @@ export default function DailyRoutinePage({ darkMode }) {
             >
               Give this daily layout a name to easily reuse it later.
             </p>
-
             <input
               type="text"
               value={templateName}
@@ -1470,7 +1534,6 @@ export default function DailyRoutinePage({ darkMode }) {
                   : "bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400 focus:border-indigo-300"
               }`}
             />
-
             <div className="flex gap-2">
               <button
                 onClick={() => setTemplateModal(false)}
@@ -1481,9 +1544,9 @@ export default function DailyRoutinePage({ darkMode }) {
               <button
                 onClick={handleSaveAsTemplate}
                 disabled={!templateName.trim() || saving}
-                className="flex-1 py-2.5 rounded-xl text-sm font-outfit font-semibold bg-indigo-500 hover:bg-indigo-400 text-white shadow-md shadow-indigo-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                className="flex-1 py-2.5 rounded-xl text-sm font-outfit font-semibold bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white shadow-md shadow-indigo-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               >
-                Save
+                Save Template
               </button>
             </div>
           </div>

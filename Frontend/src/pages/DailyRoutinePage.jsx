@@ -35,6 +35,7 @@ const CATEGORIES = [
     color: "bg-blue-500",
     light: "bg-blue-50 text-blue-700 border-blue-200",
     dark: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+    hex: "#3b82f6",
     icon: BookOpen,
   },
   {
@@ -43,6 +44,7 @@ const CATEGORIES = [
     color: "bg-indigo-500",
     light: "bg-indigo-50 text-indigo-700 border-indigo-200",
     dark: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
+    hex: "#6366f1",
     icon: Briefcase,
   },
   {
@@ -51,6 +53,7 @@ const CATEGORIES = [
     color: "bg-amber-500",
     light: "bg-amber-50 text-amber-700 border-amber-200",
     dark: "bg-amber-500/20 text-amber-300 border-amber-500/30",
+    hex: "#f59e0b",
     icon: Coffee,
   },
   {
@@ -59,6 +62,7 @@ const CATEGORIES = [
     color: "bg-emerald-500",
     light: "bg-emerald-50 text-emerald-700 border-emerald-200",
     dark: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+    hex: "#10b981",
     icon: Dumbbell,
   },
   {
@@ -67,6 +71,7 @@ const CATEGORIES = [
     color: "bg-orange-500",
     light: "bg-orange-50 text-orange-700 border-orange-200",
     dark: "bg-orange-500/20 text-orange-300 border-orange-500/30",
+    hex: "#f97316",
     icon: Utensils,
   },
   {
@@ -75,6 +80,7 @@ const CATEGORIES = [
     color: "bg-purple-500",
     light: "bg-purple-50 text-purple-700 border-purple-200",
     dark: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+    hex: "#a855f7",
     icon: Code2,
   },
   {
@@ -83,6 +89,7 @@ const CATEGORIES = [
     color: "bg-pink-500",
     light: "bg-pink-50 text-pink-700 border-pink-200",
     dark: "bg-pink-500/20 text-pink-300 border-pink-500/30",
+    hex: "#ec4899",
     icon: Music,
   },
   {
@@ -91,6 +98,7 @@ const CATEGORIES = [
     color: "bg-slate-500",
     light: "bg-slate-100 text-slate-600 border-slate-200",
     dark: "bg-slate-500/20 text-slate-300 border-slate-500/30",
+    hex: "#64748b",
     icon: Moon,
   },
 ];
@@ -412,6 +420,142 @@ function SlotModal({ slot, entry, globalTasks, onSave, onClose, darkMode }) {
             Save Activity
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Category Analytics Ring Chart ────────────────────────────────
+function CategoryRingChart({ entries, darkMode }) {
+  const stats = {};
+  CATEGORIES.forEach((c) => {
+    stats[c.id] = { ...c, totalMins: 0 };
+  });
+
+  let totalTrackedMins = 0;
+
+  Object.values(entries).forEach((e) => {
+    let mins = Math.floor((e.elapsedSeconds || 0) / 60);
+    if (e.completed && mins === 0) {
+      mins = e.duration || 0;
+    }
+    if (stats[e.category]) {
+      stats[e.category].totalMins += mins;
+      totalTrackedMins += mins;
+    }
+  });
+
+  const sortedStats = Object.values(stats)
+    .filter((s) => s.totalMins > 0)
+    .sort((a, b) => b.totalMins - a.totalMins);
+
+  if (totalTrackedMins === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8 gap-4">
+        <div
+          className={`w-36 h-36 rounded-full border-8 flex items-center justify-center ${
+            darkMode ? "border-slate-800" : "border-slate-100"
+          }`}
+        >
+          <span
+            className={`text-xs font-outfit uppercase tracking-wider ${
+              darkMode ? "text-slate-600" : "text-slate-400"
+            }`}
+          >
+            No Data
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // Build conic gradient string
+  let currentPct = 0;
+  const gradientStops = sortedStats
+    .map((stat) => {
+      const percentage = (stat.totalMins / totalTrackedMins) * 100;
+      const start = currentPct;
+      const end = currentPct + percentage;
+      currentPct = end;
+      return `${stat.hex} ${start}% ${end}%`;
+    })
+    .join(", ");
+
+  return (
+    <div className="flex flex-col items-center gap-7 pt-2">
+      {/* Donut Chart */}
+      <div
+        className="relative w-40 h-40 rounded-full flex items-center justify-center shadow-lg transition-all"
+        style={{ background: `conic-gradient(${gradientStops})` }}
+      >
+        {/* Inner hole */}
+        <div
+          className={`absolute inset-0 m-auto w-28 h-28 rounded-full flex flex-col items-center justify-center border shadow-[inset_0_2px_10px_rgba(0,0,0,0.1)] ${
+            darkMode
+              ? "bg-slate-900 border-white/10"
+              : "bg-white border-slate-100"
+          }`}
+        >
+          <span
+            className={`text-xl font-bold font-inter ${
+              darkMode ? "text-white" : "text-slate-800"
+            }`}
+          >
+            {Math.floor(totalTrackedMins / 60)}h {totalTrackedMins % 60}m
+          </span>
+          <span
+            className={`text-[10px] font-outfit uppercase tracking-widest mt-0.5 ${
+              darkMode ? "text-slate-500" : "text-slate-400"
+            }`}
+          >
+            Logged
+          </span>
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="flex flex-col gap-3 w-full">
+        {sortedStats.map((stat) => {
+          const pct = Math.round((stat.totalMins / totalTrackedMins) * 100);
+          return (
+            <div
+              key={stat.id}
+              className="flex items-center justify-between text-sm group"
+            >
+              <div className="flex items-center gap-2.5">
+                <span
+                  className="w-3 h-3 rounded-full shadow-sm"
+                  style={{ backgroundColor: stat.hex }}
+                />
+                <span
+                  className={`font-outfit font-medium transition-colors ${
+                    darkMode
+                      ? "text-slate-300 group-hover:text-white"
+                      : "text-slate-600 group-hover:text-slate-900"
+                  }`}
+                >
+                  {stat.label}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span
+                  className={`font-semibold tabular-nums font-inter ${
+                    darkMode ? "text-slate-400" : "text-slate-500"
+                  }`}
+                >
+                  {stat.totalMins}m
+                </span>
+                <span
+                  className={`text-xs font-bold tabular-nums w-9 text-right bg-black/5 dark:bg-white/5 py-1 px-1.5 rounded-md ${
+                    darkMode ? "text-slate-400" : "text-slate-500"
+                  }`}
+                >
+                  {pct}%
+                </span>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -760,29 +904,24 @@ export default function DailyRoutinePage({ darkMode }) {
           </p>
         </div>
 
-        {/* Category legend */}
+        {/* Category Analytics */}
         <div
-          className={`rounded-2xl border p-4 ${darkMode ? "bg-slate-900/40 border-white/5" : "bg-white border-slate-100 shadow-sm"}`}
+          className={`rounded-2xl border p-5 ${darkMode ? "bg-slate-900/40 border-white/5" : "bg-white border-slate-100 shadow-sm"}`}
         >
-          <p
-            className={`text-xs font-semibold uppercase tracking-wider mb-3 ${darkMode ? "text-slate-500" : "text-slate-400"}`}
-          >
-            Categories
-          </p>
-          <div className="flex flex-col gap-1.5">
-            {CATEGORIES.map((cat) => (
-              <div key={cat.id} className="flex items-center gap-2.5">
-                <span
-                  className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${cat.color}`}
-                />
-                <span
-                  className={`text-xs font-outfit ${darkMode ? "text-slate-400" : "text-slate-600"}`}
-                >
-                  {cat.label}
-                </span>
-              </div>
-            ))}
+          <div className="flex items-center justify-between mb-2">
+            <h3
+              className={`text-xs font-semibold uppercase tracking-wider ${darkMode ? "text-slate-500" : "text-slate-400"}`}
+            >
+              Category Breakdown
+            </h3>
+            <span
+              className={`text-[10px] font-outfit uppercase px-1.5 py-0.5 rounded border ${darkMode ? "border-white/10 text-slate-500" : "border-slate-200 text-slate-400"}`}
+            >
+              Today
+            </span>
           </div>
+
+          <CategoryRingChart entries={entries} darkMode={darkMode} />
         </div>
       </div>
 
@@ -991,7 +1130,8 @@ export default function DailyRoutinePage({ darkMode }) {
             <span className="text-right">Duration / Actions</span>
           </div>
 
-          <div className="divide-y divide-white/[0.04]">
+          {/* Time container. We remove divide-y and manage borders per-slot for spanning blocks */}
+          <div className="flex flex-col">
             {TIME_SLOTS.map((slot) => {
               const entry = entries[slot.key];
               const cat =
@@ -1004,6 +1144,34 @@ export default function DailyRoutinePage({ darkMode }) {
                 isSelectedToday &&
                 currentFloatHour >= slot.hour &&
                 currentFloatHour < slotEnd;
+
+              // ── Visual Merging Logic ──
+              // We consider adjacent blocks "identical" if they share the same title, category, note, and completion status.
+              // Empty slots are never identical to anything.
+              const prevSlot = TIME_SLOTS[TIME_SLOTS.indexOf(slot) - 1];
+              const nextSlot = TIME_SLOTS[TIME_SLOTS.indexOf(slot) + 1];
+              const prevEntry = prevSlot ? entries[prevSlot.key] : null;
+              const nextEntry = nextSlot ? entries[nextSlot.key] : null;
+
+              const isIdentical = (e1, e2) => {
+                if (!e1 || !e2) return false;
+                return (
+                  e1.title === e2.title &&
+                  e1.category === e2.category &&
+                  e1.note === e2.note &&
+                  e1.completed === e2.completed
+                );
+              };
+
+              // Determine placement in contiguous block sequence
+              const sameAsPrev = isIdentical(entry, prevEntry);
+              const sameAsNext = isIdentical(entry, nextEntry);
+
+              const isFirstOfGroup = entry && !sameAsPrev && sameAsNext;
+              const isMiddleOfGroup = entry && sameAsPrev && sameAsNext;
+              const isLastOfGroup = entry && sameAsPrev && !sameAsNext;
+              const isGrouped =
+                isFirstOfGroup || isMiddleOfGroup || isLastOfGroup;
 
               return (
                 <div
@@ -1030,8 +1198,30 @@ export default function DailyRoutinePage({ darkMode }) {
                         : darkMode
                           ? "hover:bg-white/[0.02] cursor-pointer"
                           : "hover:bg-slate-50/70 cursor-pointer"
+                  } ${
+                    darkMode
+                      ? "border-b border-white/[0.04]"
+                      : "border-b border-slate-200"
+                  } ${
+                    // Subtly link background color for spanned blocks
+                    isGrouped
+                      ? darkMode
+                        ? "!bg-slate-800/60 " +
+                          (sameAsPrev ? "border-t-0" : "") +
+                          (sameAsNext ? "!border-b-0" : "")
+                        : "!bg-slate-50/70 " +
+                          (sameAsPrev ? "border-t-0" : "") +
+                          (sameAsNext ? "!border-b-0" : "")
+                      : ""
                   }`}
                 >
+                  {/* Vertical left border for grouped slots */}
+                  {isGrouped && (
+                    <div
+                      className="absolute left-0 top-0 bottom-0 w-[3px]"
+                      style={{ backgroundColor: cat.hex }}
+                    />
+                  )}
                   {/* Active slot indicator line */}
                   {isActiveSlot && (
                     <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 shadow-[0_0_12px_theme('colors.indigo.500')] z-10" />
@@ -1075,13 +1265,17 @@ export default function DailyRoutinePage({ darkMode }) {
                     className={`min-w-0 transition-opacity ${entry?.completed ? "opacity-50" : ""}`}
                   >
                     {entry ? (
-                      <div className="flex items-center gap-2 mb-0.5 sm:mb-0">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold font-outfit ${darkMode ? cat.dark : cat.light}`}
-                        >
-                          <CatIcon size={11} />
-                          {cat.label}
-                        </span>
+                      <div
+                        className={`flex flex-col sm:flex-row sm:items-center gap-2 mb-0.5 sm:mb-0 transition-all ${sameAsPrev ? "opacity-0 h-0 sm:h-auto overflow-hidden pointer-events-none" : "opacity-100"}`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold font-outfit shrink-0 ${darkMode ? cat.dark : cat.light}`}
+                          >
+                            <CatIcon size={11} />
+                            {cat.label}
+                          </span>
+                        </div>
                         <div className="min-w-0">
                           <p
                             className={`text-sm font-medium font-inter truncate ${darkMode ? "text-slate-200" : "text-slate-700"} ${draggedSlotKey === slot.key ? "text-indigo-400" : ""}`}

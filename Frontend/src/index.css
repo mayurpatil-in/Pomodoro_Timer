@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+@theme {
+  --color-neon-blue: #00f0ff;
+  --color-neon-purple: #b026ff;
+  --color-electric-blue: #3b82f6;
+  --color-dark-bg: #0a0f1c;
+  --color-navy-card: #111827;
+  --font-inter: "Inter", sans-serif;
+  --font-outfit: "Outfit", sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-dark-bg text-white font-inter m-0 p-0 antialiased;
+    background: radial-gradient(circle at center, #111827 0%, #0a0f1c 100%);
+    min-height: 100vh;
+  }
+}
+
+.glass-panel {
+  @apply bg-navy-card/50 backdrop-blur-xl border border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.5)];
+}
+
+.neon-text-blue {
+  text-shadow:
+    0 0 10px var(--color-neon-blue),
+    0 0 20px var(--color-neon-blue);
+  color: var(--color-neon-blue);
+}
+
+.neon-text-purple {
+  text-shadow:
+    0 0 10px var(--color-neon-purple),
+    0 0 20px var(--color-neon-purple);
+  color: var(--color-neon-purple);
+}
+
+.neon-shadow-blue {
+  box-shadow:
+    0 0 15px var(--color-neon-blue),
+    inset 0 0 10px var(--color-neon-blue);
+}
+
+.neon-shadow-purple {
+  box-shadow:
+    0 0 15px var(--color-neon-purple),
+    inset 0 0 10px var(--color-neon-purple);
+}
+
+/* Flip clock specific styles */
+.flip-timer-card {
+  perspective: 1000px;
+}
+
+.flip-card-inner {
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.flip-card-front,
+.flip-card-back {
+  backface-visibility: hidden;
+  @apply flex items-center justify-center bg-navy-card rounded-xl border border-white/5;
+}
+
+.flip-card-back {
+  transform: rotateX(180deg);
+}
+
+/* Progress ring */
+.progress-ring__circle {
+  transition: stroke-dashoffset 0.35s;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+
+/* Base structural fixes */
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}

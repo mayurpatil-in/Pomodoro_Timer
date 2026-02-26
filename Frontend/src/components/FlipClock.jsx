@@ -1,93 +1,139 @@
 import { useState, useEffect, useRef } from "react";
 
+/**
+ * Flip Clock Card — correctly clips the digit so the top half
+ * shows only the top portion and the bottom half shows only the
+ * bottom portion (like a real mechanical flip clock).
+ *
+ * Technique: each half contains a 200%-high inner div that is
+ * vertically centered on the card's midline. overflow-hidden on
+ * the half then clips cleanly at the midpoint.
+ */
 export default function FlipClock({ timeValue, mode, darkMode, isFullscreen }) {
-  const [currentValue, setCurrentValue] = useState(timeValue);
+  const [prevValue, setPrevValue] = useState(timeValue);
   const [isFlipping, setIsFlipping] = useState(false);
-  const prevValueRef = useRef(timeValue);
+  const prevRef = useRef(timeValue);
 
-  // Trigger flip animation when timeValue changes
   useEffect(() => {
-    if (timeValue !== prevValueRef.current) {
-      setIsFlipping(true);
-      setCurrentValue(timeValue);
+    if (timeValue === prevRef.current) return;
 
-      const timer = setTimeout(() => {
-        setIsFlipping(false);
-        prevValueRef.current = timeValue;
-      }, 600); // matches CSS animation duration
+    const old = prevRef.current;
+    setPrevValue(old);
+    setIsFlipping(true);
+    prevRef.current = timeValue;
 
-      return () => clearTimeout(timer);
-    }
+    const t = setTimeout(() => setIsFlipping(false), 600);
+    return () => clearTimeout(t);
   }, [timeValue]);
 
-  // Adjust clock card background based on mode and theme
-  const bgColor = darkMode
-    ? mode === "pomodoro"
-      ? "bg-[#111827]"
-      : "bg-[#1a112c]"
-    : mode === "pomodoro"
-      ? "bg-[#2563eb]"
-      : "bg-[#9333ea]"; // Use bold blue/purple in light mode
+  const isPomo = mode === "pomodoro";
 
-  // Use white text on the clock cards regardless of mode to ensure contrast
-  const textClass = "text-white";
+  /* Card background */
+  const cardBg = darkMode
+    ? isPomo
+      ? "#0d1a2e"
+      : "#130d20"
+    : isPomo
+      ? "#1d4ed8"
+      : "#7e22ce";
 
-  const cardSize = isFullscreen
-    ? "w-40 h-56 sm:w-64 sm:h-80 md:w-80 md:h-[26rem] text-[6rem] sm:text-[10rem] md:text-[14rem]"
-    : "w-24 h-32 sm:w-36 sm:h-48 text-[4rem] sm:text-[6rem]";
+  /* Size classes */
+  const w = isFullscreen ? "w-36 sm:w-56 md:w-72" : "w-20 sm:w-28";
+  const h = isFullscreen ? "h-48 sm:h-72 md:h-[22rem]" : "h-28 sm:h-36";
+  const fs = isFullscreen
+    ? "text-[6rem] sm:text-[9rem] md:text-[12rem]"
+    : "text-[3rem] sm:text-[4.5rem]";
 
-  const cardBase = `relative flex justify-center items-center rounded-xl shadow-xl flip-timer-card select-none font-bold font-inter leading-none ${cardSize} ${textClass} transition-all duration-500`;
+  /** Renders a half of the card. `side` = 'top' | 'bottom'.
+   *  A 200%-tall inner wrapper is anchored at the matching edge,
+   *  so the digit is centered exactly on the midline.
+   *  overflow-hidden on the outer div clips the other half away.
+   */
+  const Half = ({ side, value, extraStyle = {}, extraClass = "" }) => (
+    <div
+      className={`absolute ${side === "top" ? "top-0" : "bottom-0"} left-0 w-full h-1/2 overflow-hidden ${extraClass}`}
+      style={extraStyle}
+    >
+      <div
+        className={`absolute left-0 w-full h-[200%] ${side === "top" ? "top-0" : "bottom-0"} flex items-center justify-center`}
+      >
+        <span
+          className={`${fs} font-bold font-inter leading-none text-white select-none`}
+        >
+          {value}
+        </span>
+      </div>
+    </div>
+  );
 
   return (
-    <div className={cardBase}>
-      {/* Base top half (shows new timeValue) */}
-      <div
-        className={`absolute top-0 left-0 w-full h-1/2 overflow-hidden rounded-t-xl border border-b-0 border-white/20 ${bgColor}`}
-      >
-        <div className="absolute bottom-0 left-0 w-full flex justify-center translate-y-[50%]">
-          {timeValue}
-        </div>
-      </div>
+    <div
+      className={`${w} ${h} relative rounded-2xl overflow-hidden`}
+      style={{
+        background: cardBg,
+        boxShadow:
+          "0 10px 36px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.07)",
+      }}
+    >
+      {/* ── Static top half — shows current value's top */}
+      <Half side="top" value={timeValue} />
 
-      {/* Base bottom half (shows old timeValue) */}
-      <div
-        className={`absolute bottom-0 left-0 w-full h-1/2 overflow-hidden rounded-b-xl border border-t-0 border-white/20 ${bgColor}`}
-      >
-        <div className="absolute top-0 left-0 w-full flex justify-center -translate-y-[50%]">
-          {prevValueRef.current}
-        </div>
-      </div>
+      {/* ── Static bottom half — shows current value's bottom */}
+      <Half side="bottom" value={timeValue} />
 
-      {/* 3D Animated Card Front (Flipping Top Half: swings from 0 to -180) */}
+      {/* ── Animated top flap: prev value's top, folds down (0° → -90°) */}
+      {isFlipping && (
+        <Half
+          side="top"
+          value={prevValue}
+          extraStyle={{
+            background: cardBg,
+            transformOrigin: "bottom center",
+            animation: "flipTop 0.3s ease-in forwards",
+            zIndex: 20,
+          }}
+        />
+      )}
+
+      {/* ── Animated bottom flap: new value's bottom, unfolds down (90° → 0°) */}
+      {isFlipping && (
+        <Half
+          side="bottom"
+          value={timeValue}
+          extraStyle={{
+            background: cardBg,
+            transformOrigin: "top center",
+            animation: "flipBottom 0.3s ease-out 0.3s forwards",
+            transform: "rotateX(90deg)",
+            zIndex: 20,
+          }}
+        />
+      )}
+
+      {/* ── Centre hinge shadow */}
       <div
-        className={`absolute top-0 left-0 w-full h-1/2 overflow-hidden rounded-t-xl origin-bottom border border-b-0 border-white/20 z-10 transition-transform duration-600 ease-in-out ${bgColor}`}
+        className="absolute inset-x-0 top-1/2 z-30 pointer-events-none"
         style={{
-          transform: isFlipping ? "rotateX(-180deg)" : "rotateX(0deg)",
-          transformStyle: "preserve-3d",
-          backfaceVisibility: "hidden",
+          height: "2px",
+          transform: "translateY(-50%)",
+          background: "rgba(0,0,0,0.6)",
+          boxShadow: "0 1px 2px rgba(0,0,0,0.8)",
         }}
-      >
-        <div className="absolute bottom-0 left-0 w-full flex justify-center translate-y-[50%]">
-          {prevValueRef.current}
-        </div>
-      </div>
+      />
 
-      {/* 3D Animated Card Back (Flipping Bottom Half revealed: swings from 180 to 0) */}
+      {/* ── Top gloss */}
       <div
-        className={`absolute bottom-0 left-0 w-full h-1/2 overflow-hidden rounded-b-xl origin-top border border-t-0 border-white/20 z-20 transition-transform duration-600 ease-in-out ${bgColor}`}
+        className="absolute top-0 left-0 w-full h-1/2 rounded-t-2xl pointer-events-none z-10"
         style={{
-          transform: isFlipping ? "rotateX(0deg)" : "rotateX(180deg)",
-          transformStyle: "preserve-3d",
-          backfaceVisibility: "hidden",
+          background:
+            "linear-gradient(to bottom, rgba(255,255,255,0.08), transparent)",
         }}
-      >
-        <div className="absolute top-0 left-0 w-full flex justify-center -translate-y-[50%]">
-          {timeValue}
-        </div>
-      </div>
+      />
 
-      {/* Center hinge line */}
-      <div className="absolute top-1/2 left-0 w-full h-[2px] bg-black/50 z-30 -translate-y-1/2 shadow-sm"></div>
+      <style>{`
+        @keyframes flipTop   { from{transform:rotateX(0deg)}   to{transform:rotateX(-90deg)} }
+        @keyframes flipBottom{ from{transform:rotateX(90deg)}  to{transform:rotateX(0deg)}   }
+      `}</style>
     </div>
   );
 }

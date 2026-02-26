@@ -1,83 +1,86 @@
 @import "tailwindcss";
 
+/* ─── Design tokens ─────────────────────────────────── */
 @theme {
-  --color-neon-blue: #00f0ff;
-  --color-neon-purple: #b026ff;
-  --color-electric-blue: #3b82f6;
-  --color-dark-bg: #0a0f1c;
-  --color-navy-card: #111827;
-  --font-inter: "Inter", sans-serif;
-  --font-outfit: "Outfit", sans-serif;
+  --color-neon-blue:      #00c6ff;
+  --color-neon-purple:    #a855f7;
+  --color-electric-blue:  #3b82f6;
+  --color-dark-bg:        #080d18;
+  --color-surface:        #0d1526;
+  --color-surface-2:      #111d35;
+  --color-border:         rgba(255,255,255,0.07);
+  --font-inter:           'Inter', sans-serif;
+  --font-outfit:          'Outfit', sans-serif;
 }
 
-@layer base {
-  body {
-    @apply bg-dark-bg text-white font-inter m-0 p-0 antialiased;
-    background: radial-gradient(circle at center, #111827 0%, #0a0f1c 100%);
-    min-height: 100vh;
-  }
+/* ─── Base ───────────────────────────────────────────── */
+*,::before,::after { box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  color: #e2e8f0;
+  min-height: 100vh;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
 }
 
-.glass-panel {
-  @apply bg-navy-card/50 backdrop-blur-xl border border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.5)];
-}
-
-.neon-text-blue {
-  text-shadow:
-    0 0 10px var(--color-neon-blue),
-    0 0 20px var(--color-neon-blue);
-  color: var(--color-neon-blue);
-}
-
-.neon-text-purple {
-  text-shadow:
-    0 0 10px var(--color-neon-purple),
-    0 0 20px var(--color-neon-purple);
-  color: var(--color-neon-purple);
-}
-
-.neon-shadow-blue {
-  box-shadow:
-    0 0 15px var(--color-neon-blue),
-    inset 0 0 10px var(--color-neon-blue);
-}
-
-.neon-shadow-purple {
-  box-shadow:
-    0 0 15px var(--color-neon-purple),
-    inset 0 0 10px var(--color-neon-purple);
-}
-
-/* Flip clock specific styles */
-.flip-timer-card {
-  perspective: 1000px;
-}
-
-.flip-card-inner {
-  transform-style: preserve-3d;
-  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.flip-card-front,
-.flip-card-back {
-  backface-visibility: hidden;
-  @apply flex items-center justify-center bg-navy-card rounded-xl border border-white/5;
-}
-
-.flip-card-back {
-  transform: rotateX(180deg);
-}
-
-/* Progress ring */
-.progress-ring__circle {
-  transition: stroke-dashoffset 0.35s;
-  transform: rotate(-90deg);
-  transform-origin: 50% 50%;
-}
-
-/* Base structural fixes */
 #root {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
+
+/* light mode body */
+body.light {
+  color: #1e293b;
+}
+
+/* ─── Noise texture overlay ─────────────────────────── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+/* ─── Card / glass panel ─────────────────────────────── */
+.glass {
+  background: rgba(13, 21, 38, 0.65);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+  border-radius: 1.5rem;
+}
+
+body.light .glass {
+  background: rgba(255,255,255,0.75);
+  border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+}
+
+/* ─── Flip clock card ────────────────────────────────── */
+.flip-card { perspective: 1200px; }
+
+.flip-card-face {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* ─── Glow text ──────────────────────────────────────── */
+.glow-blue  { text-shadow: 0 0 18px rgba(0,198,255,0.7), 0 0 40px rgba(0,198,255,0.35); color: var(--color-neon-blue); }
+.glow-purple{ text-shadow: 0 0 18px rgba(168,85,247,0.7), 0 0 40px rgba(168,85,247,0.35); color: var(--color-neon-purple); }
+
+/* ─── Progress ring transition ───────────────────────── */
+.progress-ring__circle {
+  transition: stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+
+/* ─── Mode button active glow ────────────────────────── */
+.mode-btn-pomodoro { box-shadow: 0 0 20px rgba(59,130,246,0.45); }
+.mode-btn-break    { box-shadow: 0 0 20px rgba(168,85,247,0.45); }

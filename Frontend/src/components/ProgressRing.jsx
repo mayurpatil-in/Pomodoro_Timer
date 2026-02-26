@@ -1,30 +1,50 @@
-export default function ProgressRing({ progress, className = "" }) {
-  const radius = 140; // Desktop sizes
-  const circumference = radius * 2 * Math.PI;
-  const strokeDashoffset = circumference - (progress / 100) * circumference;
+export default function ProgressRing({ progress, isPomo }) {
+  const r = 130;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (progress / 100) * circ;
+  const strokeColor = isPomo ? "#3b82f6" : "#a855f7";
+  const glowColor = isPomo ? "rgba(59,130,246,0.6)" : "rgba(168,85,247,0.6)";
 
   return (
-    <div className="relative flex justify-center items-center w-64 h-64 sm:w-80 sm:h-80 opacity-60 pointer-events-none">
-      <svg className="w-full h-full" viewBox="0 0 320 320">
-        <circle
-          className="text-gray-700/30 stroke-current"
-          strokeWidth="8"
-          fill="transparent"
-          r={radius}
-          cx="160"
-          cy="160"
-        />
-        <circle
-          className={`progress-ring__circle stroke-current ${className}`}
-          strokeWidth="8"
-          strokeLinecap="round"
-          fill="transparent"
-          r={radius}
-          cx="160"
-          cy="160"
-          style={{ strokeDasharray: circumference, strokeDashoffset }}
-        />
-      </svg>
-    </div>
+    <svg width="300" height="300" viewBox="0 0 300 300" className="opacity-70">
+      <defs>
+        <filter id="ringGlow">
+          <feGaussianBlur stdDeviation="3" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+
+      {/* Track */}
+      <circle
+        cx="150"
+        cy="150"
+        r={r}
+        fill="none"
+        stroke="rgba(255,255,255,0.05)"
+        strokeWidth="6"
+      />
+
+      {/* Progress arc */}
+      <circle
+        cx="150"
+        cy="150"
+        r={r}
+        fill="none"
+        stroke={strokeColor}
+        strokeWidth="5"
+        strokeLinecap="round"
+        strokeDasharray={circ}
+        strokeDashoffset={offset}
+        style={{
+          transform: "rotate(-90deg)",
+          transformOrigin: "50% 50%",
+          transition: "stroke-dashoffset 0.6s cubic-bezier(0.4,0,0.2,1)",
+          filter: `drop-shadow(0 0 8px ${glowColor})`,
+        }}
+      />
+    </svg>
   );
 }

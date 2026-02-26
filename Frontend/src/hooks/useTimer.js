@@ -1,30 +1,52 @@
 import { useState, useEffect, useCallback } from "react";
-
-const POMODORO_TIME = 25 * 60;
-const SHORT_BREAK_TIME = 5 * 60;
-const LONG_BREAK_TIME = 15 * 60;
+import { useAuth } from "../context/AuthContext";
+import { useSettings } from "../context/SettingsContext";
 
 export default function useTimer() {
-  const [timeLeft, setTimeLeft] = useState(POMODORO_TIME);
-  const [mode, setMode] = useState("pomodoro");
-  const [isActive, setIsActive] = useState(false);
-  const [sessionCount, setSessionCount] = useState(() => {
-    const saved = localStorage.getItem("pomodoroSessions");
-    return saved ? parseInt(saved, 10) : 0;
-  });
+  const { api, user } = useAuth();
+  const { settings } = useSettings();
 
-  const getInitialTime = useCallback((m) => {
-    switch (m) {
-      case "pomodoro":
-        return POMODORO_TIME;
-      case "shortBreak":
-        return SHORT_BREAK_TIME;
-      case "longBreak":
-        return LONG_BREAK_TIME;
-      default:
-        return POMODORO_TIME;
+  // Derive durations in seconds from user settings
+  const POMODORO_TIME = settings.focusDuration * 60;
+  const SHORT_BREAK_TIME = settings.shortBreak * 60;
+  const LONG_BREAK_TIME = settings.longBreak * 60;
+
+  const getInitialTime = useCallback(
+    (m) => {
+      switch (m) {
+        case "pomodoro":
+          return settings.focusDuration * 60;
+        case "shortBreak":
+          return settings.shortBreak * 60;
+        case "longBreak":
+          return settings.longBreak * 60;
+        default:
+          return settings.focusDuration * 60;
+      }
+    },
+    [settings],
+  );
+
+  const [mode, setMode] = useState("pomodoro");
+  const [timeLeft, setTimeLeft] = useState(POMODORO_TIME);
+  const [isActive, setIsActive] = useState(false);
+  const [sessionCount, setSessionCount] = useState(0);
+
+  // Load initial session count from backend
+  useEffect(() => {
+    if (user && api) {
+      api
+        .get("/sessions/stats/today")
+        .then((res) => setSessionCount(res.data.today_pomodoros))
+        .catch((err) => console.error("Could not load stats", err));
     }
-  }, []);
+  }, [user, api]);
+
+  // When settings change (user saves from Settings page), reset the current timer
+  useEffect(() => {
+    setIsActive(false);
+    setTimeLeft(getInitialTime(mode));
+  }, [settings, mode, getInitialTime]);
 
   const changeMode = useCallback(
     (newMode) => {
@@ -43,8 +65,6 @@ export default function useTimer() {
   }, [mode, getInitialTime]);
 
   const playSound = () => {
-    // A simple beep using Web Audio API as a fallback,
-    // or you could use an actual audio file if one was provided in public/assets
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (AudioContext) {
@@ -53,7 +73,7 @@ export default function useTimer() {
         const gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
-        osc.frequency.value = 523.25; // C5
+        osc.frequency.value = 523.25;
         osc.type = "sine";
         gain.gain.setValueAtTime(0.5, ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 1);
@@ -70,33 +90,47 @@ export default function useTimer() {
 
     if (isActive && timeLeft > 0) {
       interval = setInterval(() => {
-        setTimeLeft(timeLeft - 1);
+        setTimeLeft((t) => t - 1);
       }, 1000);
     } else if (timeLeft === 0 && isActive) {
       setIsActive(false);
       playSound();
 
+      // Log session to backend
+      if (user && api) {
+        api
+          .post("/sessions", {
+            type: mode,
+            duration_seconds: getInitialTime(mode),
+          })
+          .catch((err) => console.error("Failed to log session", err));
+      }
+
       if (mode === "pomodoro") {
         const newCount = sessionCount + 1;
         setSessionCount(newCount);
-        localStorage.setItem("pomodoroSessions", newCount.toString());
-
-        // Auto-switch logic: every 4th session is a long break
         if (newCount % 4 === 0) {
           changeMode("longBreak");
         } else {
           changeMode("shortBreak");
         }
       } else {
-        // Break is over, back to work
         changeMode("pomodoro");
       }
     }
 
     return () => clearInterval(interval);
-  }, [isActive, timeLeft, mode, sessionCount, changeMode]);
+  }, [
+    isActive,
+    timeLeft,
+    mode,
+    sessionCount,
+    changeMode,
+    user,
+    api,
+    getInitialTime,
+  ]);
 
-  // Calculate progress %
   const totalTime = getInitialTime(mode);
   const progress = ((totalTime - timeLeft) / totalTime) * 100;
 

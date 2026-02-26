@@ -1,32 +1,54 @@
 import { useState, useEffect } from "react";
 
 const quotes = [
-  "Focus on being productive instead of busy.",
-  "Starve your distractions, feed your focus.",
-  "Until we can manage time, we can manage nothing else.",
-  "Do what is right, not what is easy.",
-  "Success is the sum of small efforts repeated daily.",
-  "Your future is created by what you do today.",
-  "Action is the foundational key to all success.",
+  {
+    text: "Deep work is the superpower of the 21st century.",
+    author: "Cal Newport",
+  },
+  {
+    text: "You don't need more time—you need more focus.",
+    author: "Anonymous",
+  },
+  { text: "Starve your distractions, feed your focus.", author: "Anonymous" },
+  {
+    text: "Small disciplines repeated with consistency lead to great achievements.",
+    author: "John Maxwell",
+  },
+  {
+    text: "The secret to getting ahead is getting started.",
+    author: "Mark Twain",
+  },
+  {
+    text: "Excellence is not a destination; it's a continuous journey.",
+    author: "Brian Tracy",
+  },
+  {
+    text: "Action is the foundational key to all success.",
+    author: "Pablo Picasso",
+  },
 ];
 
 export default function Quote({ darkMode }) {
-  const [quote, setQuote] = useState("");
+  const [q, setQ] = useState(null);
 
   useEffect(() => {
-    // Pick a random quote on mount
-    setQuote(quotes[Math.floor(Math.random() * quotes.length)]);
+    setQ(quotes[Math.floor(Math.random() * quotes.length)]);
   }, []);
 
+  if (!q) return null;
+
   return (
-    <div
-      className={`max-w-md mx-auto text-center px-4 transition-colors duration-500 ${
-        darkMode ? "text-gray-400" : "text-gray-500"
-      }`}
-    >
-      <p className="italic text-sm sm:text-base font-medium font-outfit">
-        &quot;{quote}&quot;
+    <div className="flex flex-col items-center gap-1 px-6 text-center max-w-md mx-auto">
+      <p
+        className={`text-sm font-outfit italic leading-relaxed ${darkMode ? "text-slate-500" : "text-slate-400"}`}
+      >
+        &ldquo;{q.text}&rdquo;
       </p>
+      <span
+        className={`text-[11px] font-semibold tracking-wider uppercase ${darkMode ? "text-slate-600" : "text-slate-400"}`}
+      >
+        — {q.author}
+      </span>
     </div>
   );
 }

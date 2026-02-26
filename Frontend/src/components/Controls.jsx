@@ -9,40 +9,48 @@ export default function Controls({
 }) {
   const isPomo = mode === "pomodoro";
 
+  const playBg = isPomo
+    ? "bg-blue-500 hover:bg-blue-400 shadow-[0_0_28px_rgba(59,130,246,0.5)]"
+    : "bg-purple-500 hover:bg-purple-400 shadow-[0_0_28px_rgba(168,85,247,0.5)]";
+
+  const pauseBg = isPomo
+    ? "border-2 border-blue-500 text-blue-400 hover:bg-blue-500/15 shadow-[0_0_18px_rgba(59,130,246,0.3)]"
+    : "border-2 border-purple-500 text-purple-400 hover:bg-purple-500/15 shadow-[0_0_18px_rgba(168,85,247,0.3)]";
+
   return (
-    <div className="flex gap-4 sm:gap-6 items-center mt-2 z-10">
+    <div className="flex items-center gap-5">
+      {/* Reset */}
+      <button
+        onClick={resetTimer}
+        className={`w-12 h-12 flex items-center justify-center rounded-2xl border transition-all duration-300 hover:rotate-[-20deg] ${
+          darkMode
+            ? "bg-slate-800/60 border-white/8 text-slate-400 hover:text-white hover:border-white/20 hover:bg-slate-700/60"
+            : "bg-white/70 border-black/10 text-slate-500 hover:text-slate-900 hover:bg-white"
+        }`}
+        title="Reset (R)"
+        aria-label="Reset"
+      >
+        <RotateCcw size={18} />
+      </button>
+
+      {/* Play / Pause */}
       <button
         onClick={toggleTimer}
-        className={`flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full transition-all duration-300 shadow-xl ${
-          isPomo
-            ? isActive
-              ? "bg-white text-electric-blue border-4 border-electric-blue"
-              : "bg-electric-blue text-white hover:scale-105 neon-shadow-blue"
-            : isActive
-              ? "bg-white text-neon-purple border-4 border-neon-purple"
-              : "bg-neon-purple text-white hover:scale-105 neon-shadow-purple"
+        className={`w-20 h-20 flex items-center justify-center rounded-full text-white transition-all duration-200 active:scale-95 ${
+          isActive ? pauseBg : `${playBg} text-white`
         }`}
-        aria-label={isActive ? "Pause Task" : "Start Task"}
+        title="Start / Pause (Space)"
+        aria-label={isActive ? "Pause" : "Start"}
       >
         {isActive ? (
-          <Pause className="w-8 h-8 sm:w-10 sm:h-10 fill-current" />
+          <Pause size={30} className="fill-current" />
         ) : (
-          <Play className="w-8 h-8 sm:w-10 sm:h-10 ml-1 fill-current" />
+          <Play size={30} className="ml-1 fill-current" />
         )}
       </button>
 
-      <button
-        onClick={resetTimer}
-        className={`flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-full transition-all duration-300 hover:rotate-180 border ${
-          darkMode
-            ? "bg-navy-card/80 text-gray-300 border-white/10 hover:text-white hover:bg-white/10"
-            : "bg-white text-gray-500 border-gray-200 hover:text-gray-900 shadow-sm"
-        }`}
-        aria-label="Reset Timer"
-        title="Reset"
-      >
-        <RotateCcw className="w-5 h-5 sm:w-6 sm:h-6" />
-      </button>
+      {/* Spacer so reset doesn't look odd on left */}
+      <div className="w-12" />
     </div>
   );
 }

@@ -7,31 +7,7 @@ from app.utils import error_response
 
 auth_bp = Blueprint('auth', __name__)
 
-@auth_bp.route('/register', methods=['POST'])
-@limiter.limit("5 per minute")
-def register():
-    data = request.get_json()
-    email = data.get('email')
-    password = data.get('password')
 
-    if not email or not password:
-        return error_response(400, 'Email and password are required.')
-
-    if User.query.filter_by(email=email).first():
-        return error_response(400, 'Email already registered.')
-
-    user = User(email=email)
-    user.set_password(password)
-    
-    db.session.add(user)
-    db.session.commit()
-
-    access_token = create_access_token(identity=user.id)
-    return jsonify({
-        'message': 'User registered successfully',
-        'token': access_token,
-        'user': user_schema.dump(user)
-    }), 201
 
 @auth_bp.route('/login', methods=['POST'])
 @limiter.limit("10 per minute")
@@ -78,3 +54,30 @@ def update_me():
         db.session.commit()
 
     return jsonify(user_schema.dump(user)), 200
+
+@auth_bp.route('/password', methods=['PUT'])
+@jwt_required()
+def update_password():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    
+    if not user:
+        return error_response(404, 'User not found.')
+
+    data = request.get_json()
+    current_password = data.get('current_password')
+    new_password = data.get('new_password')
+
+    if not current_password or not new_password:
+        return error_response(400, 'Current and new passions are required.')
+
+    if not user.check_password(current_password):
+        return error_response(401, 'Incorrect current password.')
+        
+    if len(new_password) < 6:
+        return error_response(400, 'New password must be at least 6 characters.')
+
+    user.set_password(new_password)
+    db.session.commit()
+
+    return jsonify({'message': 'Password updated successfully'}), 200

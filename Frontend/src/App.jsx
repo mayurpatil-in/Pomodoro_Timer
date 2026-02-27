@@ -1,8 +1,8 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import Login from "./pages/Login";
-import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
+import AdminUsersPage from "./pages/AdminUsersPage";
 import TimerPage from "./pages/TimerPage";
 import TasksPage from "./pages/TasksPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
@@ -45,12 +45,6 @@ function App() {
           user ? <Navigate to="/" replace /> : <Login darkMode={darkMode} />
         }
       />
-      <Route
-        path="/register"
-        element={
-          user ? <Navigate to="/" replace /> : <Register darkMode={darkMode} />
-        }
-      />
 
       {/* Protected Dashboard Layout and Sub-Routes */}
       <Route element={<ProtectedRoute />}>
@@ -82,6 +76,10 @@ function App() {
           <Route
             path="/reports"
             element={<TrackReportPage darkMode={darkMode} />}
+          />
+          <Route
+            path="/admin/users"
+            element={<AdminUsersPage darkMode={darkMode} />}
           />
         </Route>
       </Route>

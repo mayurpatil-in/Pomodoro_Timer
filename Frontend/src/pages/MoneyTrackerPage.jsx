@@ -119,6 +119,111 @@ export default function MoneyTrackerPage({ darkMode }) {
   const [returnNotes, setReturnNotes] = useState("");
   const [viewLendingData, setViewLendingData] = useState(null);
 
+  // General Delete Modal State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteData, setDeleteData] = useState(null);
+
+  const confirmDelete = () => {
+    if (!deleteData) return;
+
+    if (deleteData.type === "transaction") {
+      const txId = deleteData.id;
+      const txToDelete = transactions.find((tx) => tx.id === txId);
+
+      api
+        .delete(`/money/transactions/${txId}`)
+        .then(() => {
+          setTransactions((txs) => txs.filter((tx) => tx.id !== txId));
+
+          if (txToDelete) {
+            // Revert Credit Card Balance
+            if (txToDelete.type === "expense") {
+              const cardMatch = creditCards.find((c) =>
+                txToDelete.category.includes(`(${c.name})`),
+              );
+              if (cardMatch) {
+                const isBill =
+                  txToDelete.category.startsWith("Credit Card Bill");
+                const newUsed = isBill
+                  ? cardMatch.used + txToDelete.amount
+                  : Math.max(0, cardMatch.used - txToDelete.amount);
+                const newTotalSpend = isBill
+                  ? cardMatch.total_spend || 0
+                  : Math.max(
+                      0,
+                      (cardMatch.total_spend || 0) - txToDelete.amount,
+                    );
+
+                api
+                  .put(`/money/cards/${cardMatch.id}`, {
+                    used: newUsed,
+                    total_spend: newTotalSpend,
+                  })
+                  .then((cRes) => {
+                    setCreditCards((cards) =>
+                      cards.map((c) =>
+                        c.id === cardMatch.id
+                          ? {
+                              ...c,
+                              used: cRes.data.used,
+                              total_spend: cRes.data.total_spend,
+                            }
+                          : c,
+                      ),
+                    );
+                  })
+                  .catch(console.error);
+              }
+            }
+            // Revert Lending Balance
+            else if (txToDelete.type === "lending") {
+              const lendingMatch = lendingRecords.find(
+                (r) => r.borrower === txToDelete.category,
+              );
+              if (lendingMatch) {
+                const newTotalLent = Math.max(
+                  0,
+                  lendingMatch.total_lent - txToDelete.amount,
+                );
+                api
+                  .put(`/money/lending/${lendingMatch.id}`, {
+                    total_lent: newTotalLent,
+                  })
+                  .then((lRes) => {
+                    setLendingRecords((prev) =>
+                      prev.map((r) => (r.id === lRes.data.id ? lRes.data : r)),
+                    );
+                  })
+                  .catch(console.error);
+              }
+            }
+          }
+        })
+        .catch(console.error);
+    } else if (deleteData.type === "card") {
+      api
+        .delete(`/money/cards/${deleteData.id}`)
+        .then(() => {
+          setCreditCards((cards) =>
+            cards.filter((c) => c.id !== deleteData.id),
+          );
+        })
+        .catch(console.error);
+    } else if (deleteData.type === "lending") {
+      api
+        .delete(`/money/lending/${deleteData.id}`)
+        .then(() => {
+          setLendingRecords((prev) =>
+            prev.filter((r) => r.id !== deleteData.id),
+          );
+        })
+        .catch(console.error);
+    }
+
+    setIsDeleteModalOpen(false);
+    setDeleteData(null);
+  };
+
   // Month tracking state
   const [currentDate, setCurrentDate] = useState(new Date("2026-02-01"));
 
@@ -311,80 +416,13 @@ export default function MoneyTrackerPage({ darkMode }) {
   };
 
   const handleDeleteTransaction = (txId) => {
-    if (window.confirm("Are you sure you want to delete this transaction?")) {
-      const txToDelete = transactions.find((tx) => tx.id === txId);
-
-      api
-        .delete(`/money/transactions/${txId}`)
-        .then(() => {
-          setTransactions((txs) => txs.filter((tx) => tx.id !== txId));
-
-          if (txToDelete) {
-            // Revert Credit Card Balance
-            if (txToDelete.type === "expense") {
-              const cardMatch = creditCards.find((c) =>
-                txToDelete.category.includes(`(${c.name})`),
-              );
-              if (cardMatch) {
-                const isBill =
-                  txToDelete.category.startsWith("Credit Card Bill");
-                const newUsed = isBill
-                  ? cardMatch.used + txToDelete.amount
-                  : Math.max(0, cardMatch.used - txToDelete.amount);
-                const newTotalSpend = isBill
-                  ? cardMatch.total_spend || 0
-                  : Math.max(
-                      0,
-                      (cardMatch.total_spend || 0) - txToDelete.amount,
-                    );
-
-                api
-                  .put(`/money/cards/${cardMatch.id}`, {
-                    used: newUsed,
-                    total_spend: newTotalSpend,
-                  })
-                  .then((cRes) => {
-                    setCreditCards((cards) =>
-                      cards.map((c) =>
-                        c.id === cardMatch.id
-                          ? {
-                              ...c,
-                              used: cRes.data.used,
-                              total_spend: cRes.data.total_spend,
-                            }
-                          : c,
-                      ),
-                    );
-                  })
-                  .catch(console.error);
-              }
-            }
-            // Revert Lending Balance
-            else if (txToDelete.type === "lending") {
-              const lendingMatch = lendingRecords.find(
-                (r) => r.borrower === txToDelete.category,
-              );
-              if (lendingMatch) {
-                const newTotalLent = Math.max(
-                  0,
-                  lendingMatch.total_lent - txToDelete.amount,
-                );
-                api
-                  .put(`/money/lending/${lendingMatch.id}`, {
-                    total_lent: newTotalLent,
-                  })
-                  .then((lRes) => {
-                    setLendingRecords((prev) =>
-                      prev.map((r) => (r.id === lRes.data.id ? lRes.data : r)),
-                    );
-                  })
-                  .catch(console.error);
-              }
-            }
-          }
-        })
-        .catch(console.error);
-    }
+    setDeleteData({
+      id: txId,
+      type: "transaction",
+      title: "Delete Transaction",
+      message: "Are you sure you want to delete this transaction?",
+    });
+    setIsDeleteModalOpen(true);
   };
 
   const handleAddCard = (e) => {
@@ -457,14 +495,13 @@ export default function MoneyTrackerPage({ darkMode }) {
   };
 
   const handleDeleteCard = (cardId) => {
-    if (window.confirm("Are you sure you want to remove this credit card?")) {
-      api
-        .delete(`/money/cards/${cardId}`)
-        .then(() => {
-          setCreditCards((cards) => cards.filter((c) => c.id !== cardId));
-        })
-        .catch(console.error);
-    }
+    setDeleteData({
+      id: cardId,
+      type: "card",
+      title: "Remove Credit Card",
+      message: "Are you sure you want to remove this credit card?",
+    });
+    setIsDeleteModalOpen(true);
   };
 
   const handlePayBill = (e) => {
@@ -573,14 +610,13 @@ export default function MoneyTrackerPage({ darkMode }) {
   };
 
   const handleDeleteLending = (recId) => {
-    if (window.confirm("Remove this lending record?")) {
-      api
-        .delete(`/money/lending/${recId}`)
-        .then(() => {
-          setLendingRecords((prev) => prev.filter((r) => r.id !== recId));
-        })
-        .catch(console.error);
-    }
+    setDeleteData({
+      id: recId,
+      type: "lending",
+      title: "Remove Lending Record",
+      message: "Are you sure you want to remove this lending record?",
+    });
+    setIsDeleteModalOpen(true);
   };
 
   const handleRecordReturn = (e) => {
@@ -2743,6 +2779,56 @@ export default function MoneyTrackerPage({ darkMode }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete Confirmation Modal ── */}
+      {isDeleteModalOpen && deleteData && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setIsDeleteModalOpen(false)}
+          />
+          <div
+            className={`relative w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden p-6 ${darkMode ? "bg-[#161b22] border border-white/10" : "bg-white"}`}
+          >
+            <div className="flex flex-col items-center text-center">
+              <div
+                className={`w-12 h-12 rounded-full flex items-center justify-center mb-4 ${darkMode ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-600"}`}
+              >
+                <Trash2 size={24} />
+              </div>
+              <h3
+                className={`text-lg font-semibold mb-2 ${darkMode ? "text-white" : "text-slate-900"}`}
+              >
+                {deleteData.title}
+              </h3>
+              <p
+                className={`text-sm mb-6 ${darkMode ? "text-slate-400" : "text-slate-500"}`}
+              >
+                {deleteData.message}
+              </p>
+
+              <div className="flex gap-3 w-full">
+                <button
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                    darkMode
+                      ? "bg-white/10 hover:bg-white/20 text-white"
+                      : "bg-slate-100 hover:bg-slate-200 text-slate-900"
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors bg-red-600 hover:bg-red-700"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

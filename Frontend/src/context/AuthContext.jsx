@@ -73,6 +73,14 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const updatePassword = async (currentPassword, newPassword) => {
+    const response = await api.put("/auth/password", {
+      current_password: currentPassword,
+      new_password: newPassword,
+    });
+    return response.data;
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -82,6 +90,7 @@ export function AuthProvider({ children }) {
         register,
         logout,
         updateDailyGoal,
+        updatePassword,
         api,
         activeTask,
         setActiveTask,

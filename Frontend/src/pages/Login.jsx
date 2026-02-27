@@ -355,38 +355,6 @@ export default function Login({ darkMode }) {
             </button>
           </form>
 
-          {/* Divider */}
-          <div className="flex items-center gap-3 my-6">
-            <div
-              className={`flex-1 h-px ${darkMode ? "bg-white/8" : "bg-slate-200"}`}
-            />
-            <span
-              className={`text-xs font-outfit ${darkMode ? "text-slate-600" : "text-slate-400"}`}
-            >
-              OR
-            </span>
-            <div
-              className={`flex-1 h-px ${darkMode ? "bg-white/8" : "bg-slate-200"}`}
-            />
-          </div>
-
-          {/* Register link */}
-          <p
-            className={`text-center text-sm font-outfit ${darkMode ? "text-slate-400" : "text-slate-500"}`}
-          >
-            Don't have an account?{" "}
-            <Link
-              to="/register"
-              className={`font-semibold transition-colors inline-flex items-center gap-1 ${
-                darkMode
-                  ? "text-indigo-400 hover:text-indigo-300"
-                  : "text-indigo-600 hover:text-indigo-500"
-              }`}
-            >
-              Create one free →
-            </Link>
-          </p>
-
           {/* Bottom trust note */}
           <div
             className={`mt-8 flex items-center justify-center gap-1.5 text-[11px] font-outfit ${darkMode ? "text-slate-600" : "text-slate-400"}`}

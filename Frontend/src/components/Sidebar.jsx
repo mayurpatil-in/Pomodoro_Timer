@@ -12,6 +12,7 @@ import {
   CalendarDays as RoutineIcon,
   Wallet as WalletIcon,
   ClipboardList as ReportIcon,
+  Users as UsersIcon,
   LogOut,
 } from "lucide-react";
 
@@ -133,6 +134,27 @@ export function DesktopSidebar({ darkMode }) {
             </div>
           </div>
         ))}
+        {user && ["admin", "superadmin"].includes(user.role) && (
+          <div>
+            <p
+              className={`px-3 mb-1.5 text-[10px] font-bold tracking-widest uppercase ${
+                darkMode ? "text-slate-600" : "text-slate-400"
+              }`}
+            >
+              Admin Controls
+            </p>
+            <div className="space-y-0.5">
+              <NavItem
+                item={{
+                  name: "User Management",
+                  path: "/admin/users",
+                  icon: UsersIcon,
+                }}
+                darkMode={darkMode}
+              />
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* User Footer */}
@@ -250,6 +272,28 @@ export function MobileSidebar({ darkMode, open, onClose }) {
               </div>
             </div>
           ))}
+          {user && ["admin", "superadmin"].includes(user.role) && (
+            <div>
+              <p
+                className={`px-3 mb-1.5 text-[10px] font-bold tracking-widest uppercase ${
+                  darkMode ? "text-slate-600" : "text-slate-400"
+                }`}
+              >
+                Admin Controls
+              </p>
+              <div className="space-y-0.5">
+                <NavItem
+                  item={{
+                    name: "User Management",
+                    path: "/admin/users",
+                    icon: UsersIcon,
+                  }}
+                  darkMode={darkMode}
+                  onClick={onClose}
+                />
+              </div>
+            </div>
+          )}
         </nav>
 
         {/* User Footer */}

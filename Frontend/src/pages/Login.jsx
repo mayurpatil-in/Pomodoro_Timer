@@ -65,12 +65,29 @@ export default function Login({ darkMode }) {
 
   return (
     <div
-      className={`min-h-screen flex w-full ${
+      className={`min-h-screen flex w-full relative overflow-hidden ${
         darkMode
           ? "bg-[#080c14] text-white"
           : "bg-gradient-to-br from-slate-50 via-indigo-50/30 to-purple-50/30 text-slate-900"
       }`}
     >
+      {/* Mobile background decorative elements */}
+      <div className="lg:hidden absolute inset-0 pointer-events-none">
+        <div
+          className={`absolute -top-32 -left-32 w-[380px] h-[380px] rounded-full blur-[100px] opacity-60 ${darkMode ? "bg-indigo-600/20" : "bg-indigo-400/20"}`}
+        />
+        <div
+          className={`absolute top-[60%] -right-32 w-[320px] h-[320px] rounded-full blur-[100px] opacity-60 ${darkMode ? "bg-purple-600/20" : "bg-purple-400/20"}`}
+        />
+        {/* Grid overlay texture for mobile */}
+        <div
+          className={`absolute inset-0 opacity-[0.03] ${darkMode ? "invert-0" : "invert"}`}
+          style={{
+            backgroundImage: `linear-gradient(rgba(255,255,255,.4) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.4) 1px, transparent 1px)`,
+            backgroundSize: "30px 30px",
+          }}
+        />
+      </div>
       {/* ── Left panel: branding ── */}
       <div
         className={`hidden lg:flex lg:w-[52%] relative flex-col items-start justify-between overflow-hidden p-12 ${
@@ -153,33 +170,46 @@ export default function Login({ darkMode }) {
 
       {/* ── Right panel: form ── */}
       <div
-        className={`flex-1 flex flex-col items-center justify-center px-6 sm:px-12 py-16 relative ${
-          darkMode ? "bg-[#080c14]" : "bg-white/70 backdrop-blur-sm"
+        className={`flex-1 flex flex-col items-center justify-center px-4 sm:px-12 py-12 lg:py-16 relative z-10 ${
+          darkMode ? "lg:bg-[#080c14]" : "lg:bg-white/70 lg:backdrop-blur-sm"
         }`}
       >
-        {/* Mobile logo */}
-        <div className="lg:hidden flex items-center gap-2 mb-10">
-          <div
-            className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-              darkMode
-                ? "bg-indigo-500/20 text-indigo-400"
-                : "bg-indigo-100 text-indigo-600"
-            }`}
-          >
-            <Timer size={18} />
-          </div>
-          <span
-            className={`font-inter font-bold text-lg ${darkMode ? "text-white" : "text-slate-900"}`}
-          >
-            FocusFlow
-          </span>
-        </div>
-
-        <div className="w-full max-w-[420px]">
-          {/* Header */}
-          <div className="mb-8">
+        <div
+          className={`w-full max-w-[420px] lg:max-w-[420px] rounded-3xl p-6 sm:p-10 lg:p-0 transition-all ${
+            darkMode
+              ? "bg-[#101726]/80 lg:bg-transparent backdrop-blur-xl border border-white/5 lg:border-none shadow-2xl shadow-black/50 lg:shadow-none"
+              : "bg-white/80 lg:bg-transparent backdrop-blur-xl border border-slate-200 lg:border-none shadow-2xl shadow-indigo-500/10 lg:shadow-none"
+          }`}
+        >
+          {/* Mobile logo */}
+          <div className="lg:hidden flex flex-col items-center gap-3 mb-8">
             <div
-              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-outfit font-medium mb-5 border ${
+              className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${
+                darkMode
+                  ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/20"
+                  : "bg-gradient-to-br from-indigo-500 to-purple-600 text-white"
+              }`}
+            >
+              <Timer size={24} />
+            </div>
+            <div className="text-center">
+              <span
+                className={`font-inter font-extrabold text-2xl tracking-tight ${darkMode ? "text-white" : "text-slate-900"}`}
+              >
+                FocusFlow
+              </span>
+              <p
+                className={`text-xs mt-1 font-outfit ${darkMode ? "text-indigo-200/60" : "text-indigo-600/60"}`}
+              >
+                Unlock your peak productivity.
+              </p>
+            </div>
+          </div>
+
+          {/* Header */}
+          <div className="mb-8 text-center lg:text-left">
+            <div
+              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-outfit font-medium mb-4 lg:mb-5 border ${
                 darkMode
                   ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
                   : "bg-emerald-50 border-emerald-200 text-emerald-700"
@@ -189,7 +219,7 @@ export default function Login({ darkMode }) {
               Secure Sign-In Portal
             </div>
             <h2
-              className={`font-inter font-extrabold text-3xl sm:text-4xl mb-2 leading-tight ${darkMode ? "text-white" : "text-slate-900"}`}
+              className={`font-inter font-extrabold text-2xl sm:text-3xl lg:text-4xl mb-2 leading-tight ${darkMode ? "text-white" : "text-slate-900"}`}
             >
               Welcome back
             </h2>
@@ -355,9 +385,8 @@ export default function Login({ darkMode }) {
             </button>
           </form>
 
-          {/* Bottom trust note */}
           <div
-            className={`mt-8 flex items-center justify-center gap-1.5 text-[11px] font-outfit ${darkMode ? "text-slate-600" : "text-slate-400"}`}
+            className={`mt-6 lg:mt-8 flex items-center justify-center gap-1.5 text-[11px] font-outfit ${darkMode ? "text-slate-600" : "text-slate-400"}`}
           >
             <Lock size={10} />
             256-bit SSL encrypted · Your data is safe

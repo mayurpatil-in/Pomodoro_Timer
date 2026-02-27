@@ -10,8 +10,11 @@ import {
   ArrowRight,
   CheckCircle,
   Timer,
-  Target,
   BarChart3,
+  Layout,
+  Wallet,
+  Activity,
+  Briefcase,
 } from "lucide-react";
 
 const features = [
@@ -21,14 +24,24 @@ const features = [
     desc: "AI-powered focus sessions tailored to you",
   },
   {
-    icon: Target,
-    title: "Goal Tracking",
-    desc: "Set daily goals and crush every milestone",
+    icon: Layout,
+    title: "Project Management",
+    desc: "Organise work with Kanban boards and smart tracking",
   },
   {
-    icon: BarChart3,
-    title: "Deep Analytics",
-    desc: "Visualise your productivity trends over time",
+    icon: Wallet,
+    title: "Financial Tracking",
+    desc: "Stay on top of your money, cards, and lending",
+  },
+  {
+    icon: Activity,
+    title: "Gym & Fitness Reports",
+    desc: "Monitor your gym routines and wellness goals easily",
+  },
+  {
+    icon: Briefcase,
+    title: "Interview Tracker",
+    desc: "Manage job applications from start to finish",
   },
 ];
 
@@ -135,7 +148,7 @@ export default function Login({ darkMode }) {
           </div>
 
           {/* Feature bullets */}
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3 lg:gap-4">
             {features.map(({ icon: Icon, title, desc }) => (
               <div key={title} className="flex items-center gap-4 group">
                 <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center flex-shrink-0 transition-all group-hover:bg-white/20">

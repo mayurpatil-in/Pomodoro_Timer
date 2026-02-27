@@ -36,6 +36,7 @@ const NAV_GROUPS = [
       { name: "Finances", path: "/finances", icon: WalletIcon },
       { name: "Reports", path: "/reports", icon: ReportIcon },
       { name: "Gym", path: "/gym", icon: GymIcon },
+      { name: "Projects", path: "/projects", icon: GoalIcon },
     ],
   },
   {

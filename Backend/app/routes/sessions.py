@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
-from app.models import PomodoroSession
+from app.models import PomodoroSession, ProjectActivity, ProjectTask
 from app.schemas import session_schema, sessions_schema
 from app.utils import error_response
 from datetime import datetime, timezone, timedelta
@@ -27,12 +27,30 @@ def create_session():
     new_session = PomodoroSession(
         user_id=user_id,
         duration_seconds=duration,
-        type=session_type
+        type=session_type,
+        project_id=data.get('project_id'),
+        project_task_id=data.get('project_task_id')
     )
     
     db.session.add(new_session)
-    db.session.commit()
+    db.session.flush()
 
+    # Log focus session to project activity feed
+    if session_type == 'pomodoro' and data.get('project_id'):
+        mins = round(duration / 60)
+        task_label = ""
+        if data.get('project_task_id'):
+            task = ProjectTask.query.get(data['project_task_id'])
+            if task:
+                task_label = f' on "{task.title}"'
+        activity = ProjectActivity(
+            project_id=data['project_id'],
+            type='focus_session',
+            message=f'Focus session of {mins}m logged{task_label}'
+        )
+        db.session.add(activity)
+
+    db.session.commit()
     return jsonify(session_schema.dump(new_session)), 201
 
 @sessions_bp.route('/stats/today', methods=['GET'])

@@ -22,7 +22,9 @@ api.interceptors.request.use(
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTask, setActiveTask] = useState(null); // Task currently being focused on
+  const [activeTask, setActiveTask] = useState(null); // Standalone Task currently being focused on
+  const [timerProject, setTimerProject] = useState(null); // Selected Project ID
+  const [timerTask, setTimerTask] = useState(null); // Selected Project Task ID
 
   useEffect(() => {
     const loadUser = async () => {
@@ -94,6 +96,10 @@ export function AuthProvider({ children }) {
         api,
         activeTask,
         setActiveTask,
+        timerProject,
+        setTimerProject,
+        timerTask,
+        setTimerTask,
       }}
     >
       {!loading && children}

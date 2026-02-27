@@ -3,7 +3,8 @@ import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 
 export default function useTimer() {
-  const { api, user } = useAuth();
+  const { api, user, timerProject, setTimerProject, timerTask, setTimerTask } =
+    useAuth();
   const { settings } = useSettings();
 
   // Derive durations in seconds from user settings
@@ -102,6 +103,8 @@ export default function useTimer() {
           .post("/sessions", {
             type: mode,
             duration_seconds: getInitialTime(mode),
+            project_id: timerProject,
+            project_task_id: timerTask,
           })
           .catch((err) => console.error("Failed to log session", err));
       }
@@ -129,6 +132,8 @@ export default function useTimer() {
     user,
     api,
     getInitialTime,
+    timerProject,
+    timerTask,
   ]);
 
   const totalTime = getInitialTime(mode);
@@ -143,5 +148,9 @@ export default function useTimer() {
     toggleTimer,
     resetTimer,
     changeMode,
+    selectedProjectId: timerProject,
+    setSelectedProjectId: setTimerProject,
+    selectedTaskId: timerTask,
+    setSelectedTaskId: setTimerTask,
   };
 }

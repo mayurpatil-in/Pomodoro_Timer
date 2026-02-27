@@ -23,6 +23,7 @@ class User(db.Model):
     assets = db.relationship('AssetAllocation', backref='user', lazy='dynamic', cascade='all, delete-orphan')
     lending_records = db.relationship('LendingRecord', backref='user', lazy='dynamic', cascade='all, delete-orphan')
     gym_days = db.relationship('GymDay', backref='user', lazy='dynamic', cascade='all, delete-orphan')
+    projects = db.relationship('Project', backref='user', lazy='dynamic', cascade='all, delete-orphan')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -47,6 +48,8 @@ class PomodoroSession(db.Model):
 
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
+    project_id = db.Column(db.String(36), db.ForeignKey('projects.id'), nullable=True)
+    project_task_id = db.Column(db.String(36), db.ForeignKey('project_tasks.id'), nullable=True)
     duration_seconds = db.Column(db.Integer, nullable=False)
     type = db.Column(db.String(20), nullable=False) # 'pomodoro', 'shortBreak', 'longBreak'
     completed_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
@@ -194,3 +197,49 @@ class GymGoal(db.Model):
     target_workouts_per_week = db.Column(db.Integer, nullable=False, default=3)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
+
+class Project(db.Model):
+    __tablename__ = 'projects'
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
+    name = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    category = db.Column(db.String(100), nullable=True)
+    archived = db.Column(db.Boolean, default=False, nullable=False)
+    status = db.Column(db.String(20), default='backlog', nullable=False) # 'backlog', 'in-progress', 'review', 'completed'
+    priority = db.Column(db.String(20), default='medium', nullable=False) # 'low', 'medium', 'high'
+    due_date = db.Column(db.DateTime, nullable=True)
+    notes = db.Column(db.Text, nullable=True, default='')
+    color = db.Column(db.String(20), nullable=True)  # e.g. '#6366f1'
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    tasks = db.relationship('ProjectTask', backref='project', lazy='dynamic', cascade='all, delete-orphan')
+    sessions = db.relationship('PomodoroSession', backref='project', lazy='dynamic')
+
+class ProjectTask(db.Model):
+    __tablename__ = 'project_tasks'
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    project_id = db.Column(db.String(36), db.ForeignKey('projects.id'), nullable=False)
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    priority = db.Column(db.String(20), default='medium', nullable=False) # 'low', 'medium', 'high'
+    due_date = db.Column(db.DateTime, nullable=True)
+    is_completed = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    sessions = db.relationship('PomodoroSession', backref='project_task', lazy='dynamic')
+
+
+class ProjectActivity(db.Model):
+    __tablename__ = 'project_activities'
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    project_id = db.Column(db.String(36), db.ForeignKey('projects.id'), nullable=False)
+    type = db.Column(db.String(50), nullable=False)  # 'status_change','task_added','task_completed','focus_session'
+    message = db.Column(db.String(500), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)

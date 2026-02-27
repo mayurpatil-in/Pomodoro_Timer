@@ -5,6 +5,7 @@ import FlipClock from "../components/FlipClock";
 import ProgressRing from "../components/ProgressRing";
 import { Maximize, Minimize, Target, Clock, CheckCircle2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useEffect } from "react";
 
 const QUOTES = [
   "The secret of getting ahead is getting started.",
@@ -24,9 +25,29 @@ export default function TimerPage({ darkMode }) {
     toggleTimer,
     resetTimer,
     changeMode,
+    selectedProjectId,
+    setSelectedProjectId,
+    selectedTaskId,
+    setSelectedTaskId,
   } = useTimer();
 
-  const { activeTask, setActiveTask } = useAuth();
+  const { api, activeTask, setActiveTask } = useAuth();
+  const [projects, setProjects] = useState([]);
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const response = await api.get("/projects");
+        setProjects(response.data.filter((p) => !p.archived));
+      } catch (error) {
+        console.error("Error fetching projects for timer:", error);
+      }
+    };
+    if (api) fetchProjects();
+  }, [api]);
+
+  const selectedProject = projects.find((p) => p.id === selectedProjectId);
+  const tasksForProject = selectedProject?.tasks || [];
   const [isFullscreen, setIsFullscreen] = useState(false);
   const quoteIndex = sessionCount % QUOTES.length;
 
@@ -143,8 +164,91 @@ export default function TimerPage({ darkMode }) {
         ))}
       </div>
 
-      {/* Active Task Banner */}
-      {activeTask && (
+      {/* Project & Task Selector */}
+      {isPomo && (
+        <div className="relative z-10 flex flex-col sm:flex-row gap-3 w-full max-w-sm mb-6">
+          <select
+            value={selectedProjectId || ""}
+            onChange={(e) => {
+              setSelectedProjectId(e.target.value || null);
+              setSelectedTaskId(null);
+            }}
+            className={`flex-1 px-4 py-3 rounded-2xl text-sm font-medium outline-none border transition-all ${
+              darkMode
+                ? "bg-slate-900/60 border-white/5 text-slate-300 focus:border-indigo-500/50"
+                : "bg-white border-black/5 text-slate-700 shadow-sm focus:border-indigo-500"
+            }`}
+          >
+            <option value="">Select Project</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            disabled={!selectedProjectId}
+            value={selectedTaskId || ""}
+            onChange={(e) => setSelectedTaskId(e.target.value || null)}
+            className={`flex-1 px-4 py-3 rounded-2xl text-sm font-medium outline-none border transition-all ${
+              darkMode
+                ? "bg-slate-900/60 border-white/5 text-slate-300 disabled:opacity-30"
+                : "bg-white border-black/5 text-slate-700 shadow-sm disabled:opacity-50"
+            }`}
+          >
+            <option value="">Specific Task (Optional)</option>
+            {tasksForProject.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.title}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Project/Task Focusing Banner */}
+      {isPomo && selectedProjectId && (
+        <div
+          className={`relative z-10 flex items-center gap-3 px-5 py-3 rounded-2xl border mb-6 max-w-sm w-full ${
+            darkMode
+              ? "bg-indigo-500/10 border-indigo-500/20"
+              : "bg-indigo-50 border-indigo-200"
+          }`}
+        >
+          <Target size={16} className="flex-shrink-0 text-indigo-500" />
+          <div className="flex-1 min-w-0">
+            <p
+              className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 ${darkMode ? "text-indigo-400/70" : "text-indigo-500/70"}`}
+            >
+              Project Mission
+            </p>
+            <p
+              className={`text-sm font-semibold font-inter truncate ${darkMode ? "text-indigo-300" : "text-indigo-800"}`}
+            >
+              {selectedProject?.name}
+              {selectedTaskId && (
+                <span className="opacity-60 ml-1.5 font-normal">
+                  —{" "}
+                  {tasksForProject.find((t) => t.id === selectedTaskId)?.title}
+                </span>
+              )}
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setSelectedProjectId(null);
+              setSelectedTaskId(null);
+            }}
+            className={`text-xs px-2 py-1 rounded-lg transition-colors ${darkMode ? "text-indigo-400/60 hover:text-indigo-200" : "text-indigo-400 hover:text-indigo-700"}`}
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
+      {/* Standalone Task Banner */}
+      {activeTask && !selectedProjectId && (
         <div
           className={`relative z-10 flex items-center gap-3 px-5 py-3 rounded-2xl border mb-6 max-w-sm w-full ${
             darkMode

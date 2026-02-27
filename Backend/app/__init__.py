@@ -38,6 +38,7 @@ def create_app(config_name='default'):
     from app.routes.routines import routines_bp
     from app.routes.money import bp as money_bp
     from app.routes.admin import admin_bp
+    from app.routes.gym import gym_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(tasks_bp, url_prefix='/api/tasks')
@@ -45,6 +46,7 @@ def create_app(config_name='default'):
     app.register_blueprint(routines_bp, url_prefix='/api/routines')
     app.register_blueprint(money_bp, url_prefix='/api/money')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
+    app.register_blueprint(gym_bp, url_prefix='/api/gym')
 
     # Health check route
     @app.route('/health')

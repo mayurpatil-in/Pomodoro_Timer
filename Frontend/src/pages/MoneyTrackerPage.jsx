@@ -851,7 +851,7 @@ export default function MoneyTrackerPage({ darkMode }) {
           </div>
           <div className="flex-1 w-full min-h-[300px]">
             {expenseByCategory.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={300} debounce={50}>
                 <RechartsPieChart>
                   <Pie
                     data={expenseByCategory}
@@ -931,7 +931,7 @@ export default function MoneyTrackerPage({ darkMode }) {
           </div>
           <div className="flex-1 w-full min-h-[300px]">
             {totalIncome > 0 || totalExpense > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={300} debounce={50}>
                 <BarChart
                   data={monthlyTrendData}
                   margin={{ top: 20, right: 30, left: 20, bottom: 5 }}

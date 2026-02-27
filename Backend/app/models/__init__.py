@@ -22,6 +22,7 @@ class User(db.Model):
     transactions = db.relationship('MoneyTransaction', backref='user', lazy='dynamic', cascade='all, delete-orphan')
     assets = db.relationship('AssetAllocation', backref='user', lazy='dynamic', cascade='all, delete-orphan')
     lending_records = db.relationship('LendingRecord', backref='user', lazy='dynamic', cascade='all, delete-orphan')
+    gym_days = db.relationship('GymDay', backref='user', lazy='dynamic', cascade='all, delete-orphan')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -134,3 +135,62 @@ class LendingTransaction(db.Model):
     date = db.Column(db.String(20), nullable=False)  # YYYY-MM-DD
     notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+class GymDay(db.Model):
+    __tablename__ = 'gym_days'
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
+    date = db.Column(db.String(20), nullable=False) # YYYY-MM-DD
+    weight = db.Column(db.Float, nullable=True) # in kg or lbs
+    water_glasses = db.Column(db.Integer, nullable=True, default=0)
+    pushups = db.Column(db.Integer, nullable=True, default=0)
+    pullups = db.Column(db.Integer, nullable=True, default=0)
+    squads = db.Column(db.Integer, nullable=True, default=0)
+    notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (db.UniqueConstraint('user_id', 'date', name='uq_user_gym_date'),)
+
+    exercises = db.relationship('GymExercise', backref='gym_day', lazy='dynamic', cascade='all, delete-orphan')
+    meals = db.relationship('GymMeal', backref='gym_day', lazy='dynamic', cascade='all, delete-orphan')
+
+class GymExercise(db.Model):
+    __tablename__ = 'gym_exercises'
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    gym_day_id = db.Column(db.String(36), db.ForeignKey('gym_days.id'), nullable=False)
+    name = db.Column(db.String(255), nullable=False)
+    muscle_group = db.Column(db.String(50), nullable=True) # Chest, Back, Legs, etc.
+    sets = db.Column(db.Integer, nullable=False, default=1)
+    reps = db.Column(db.Integer, nullable=False, default=1)
+    weight = db.Column(db.Float, nullable=False, default=0.0)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+class GymMeal(db.Model):
+    __tablename__ = 'gym_meals'
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    gym_day_id = db.Column(db.String(36), db.ForeignKey('gym_days.id'), nullable=False)
+    name = db.Column(db.String(255), nullable=False)
+    meal_type = db.Column(db.String(50), nullable=False) # 'Breakfast', 'Lunch', 'Dinner', 'Snack'
+    calories = db.Column(db.Integer, nullable=False, default=0)
+    protein = db.Column(db.Float, nullable=False, default=0.0)
+    carbs = db.Column(db.Float, nullable=False, default=0.0)
+    fat = db.Column(db.Float, nullable=False, default=0.0)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+class GymGoal(db.Model):
+    __tablename__ = 'gym_goals'
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False, unique=True)
+    target_water = db.Column(db.Integer, nullable=False, default=8)
+    target_protein = db.Column(db.Float, nullable=False, default=150.0)
+    target_calories = db.Column(db.Integer, nullable=False, default=2500)
+    target_pushups = db.Column(db.Integer, nullable=False, default=0)
+    target_pullups = db.Column(db.Integer, nullable=False, default=0)
+    target_squads = db.Column(db.Integer, nullable=False, default=0)
+    target_workouts_per_week = db.Column(db.Integer, nullable=False, default=3)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+

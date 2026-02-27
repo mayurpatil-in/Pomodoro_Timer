@@ -242,7 +242,7 @@ export default function AnalyticsPage({ darkMode }) {
             </p>
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={240}>
+          <ResponsiveContainer width="100%" height={240} debounce={50}>
             <BarChart data={chartData} barCategoryGap="35%" barGap={4}>
               <CartesianGrid
                 strokeDasharray="3 3"

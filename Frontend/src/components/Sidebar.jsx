@@ -14,6 +14,7 @@ import {
   ClipboardList as ReportIcon,
   Users as UsersIcon,
   LogOut,
+  Dumbbell as GymIcon,
 } from "lucide-react";
 
 // ── Navigation Structure ──────────────────────────────────────────
@@ -34,6 +35,7 @@ const NAV_GROUPS = [
       { name: "Routine", path: "/routine", icon: RoutineIcon },
       { name: "Finances", path: "/finances", icon: WalletIcon },
       { name: "Reports", path: "/reports", icon: ReportIcon },
+      { name: "Gym", path: "/gym", icon: GymIcon },
     ],
   },
   {
@@ -338,7 +340,13 @@ export function MobileSidebar({ darkMode, open, onClose }) {
 
 // ── Mobile Bottom Navigation Bar ─────────────────────────────────
 export function MobileBottomNav({ darkMode }) {
-  const BOTTOM_ITEMS = NAV_ITEMS_FLAT.slice(0, 5);
+  const BOTTOM_ITEMS = [
+    { name: "Dashboard", path: "/", icon: LayoutIcon, end: true },
+    { name: "Routine", path: "/routine", icon: RoutineIcon },
+    { name: "Timer", path: "/timer", icon: TargetIcon },
+    { name: "Finance", path: "/finances", icon: WalletIcon },
+    { name: "Gym", path: "/gym", icon: GymIcon },
+  ];
 
   return (
     <nav

@@ -32,6 +32,7 @@ def get_money_data():
             'name': c.name,
             'limit': c.limit,
             'used': c.used,
+            'total_spend': c.total_spend,
             'color': c.color,
             'due_date': c.due_date
         } for c in cards],
@@ -236,6 +237,7 @@ def create_card():
         name=data.get('name'),
         limit=data.get('limit', 0),
         used=data.get('used', 0),
+        total_spend=data.get('total_spend', 0),
         color=data.get('color', 'from-slate-500 to-slate-700'),
         due_date=data.get('due_date')
     )
@@ -248,6 +250,7 @@ def create_card():
         'name': new_card.name,
         'limit': new_card.limit,
         'used': new_card.used,
+        'total_spend': new_card.total_spend,
         'color': new_card.color,
         'due_date': new_card.due_date
     }), 201
@@ -265,6 +268,7 @@ def update_card(card_id):
     if 'name' in data: card.name = data['name']
     if 'limit' in data: card.limit = data['limit']
     if 'used' in data: card.used = data['used']
+    if 'total_spend' in data: card.total_spend = data['total_spend']
     if 'due_date' in data: card.due_date = data['due_date']
     
     db.session.commit()
@@ -274,6 +278,7 @@ def update_card(card_id):
         'name': card.name,
         'limit': card.limit,
         'used': card.used,
+        'total_spend': card.total_spend,
         'color': card.color,
         'due_date': card.due_date
     }), 200

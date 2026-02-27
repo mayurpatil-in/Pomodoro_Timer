@@ -4,6 +4,9 @@ class UserSchema(Schema):
     id = fields.String(dump_only=True)
     email = fields.Email(required=True)
     daily_goal = fields.Integer()
+    role = fields.String()
+    subscription_plan = fields.String()
+    is_active = fields.Boolean()
     created_at = fields.DateTime(dump_only=True)
 
 class TaskSchema(Schema):

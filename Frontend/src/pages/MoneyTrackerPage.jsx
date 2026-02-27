@@ -154,6 +154,7 @@ export default function MoneyTrackerPage({ darkMode }) {
     name: "",
     limit: "",
     used: "",
+    totalSpend: "",
     dueDate: "",
   });
 
@@ -207,13 +208,22 @@ export default function MoneyTrackerPage({ darkMode }) {
           );
           if (matchingCard) {
             const newUsedAmount = matchingCard.used + parsedAmount;
+            const newTotalSpend =
+              (matchingCard.total_spend || 0) + parsedAmount;
             api
-              .put(`/money/cards/${matchingCard.id}`, { used: newUsedAmount })
+              .put(`/money/cards/${matchingCard.id}`, {
+                used: newUsedAmount,
+                total_spend: newTotalSpend,
+              })
               .then((cRes) => {
                 setCreditCards((cards) =>
                   cards.map((c) =>
                     c.id === matchingCard.id
-                      ? { ...c, used: cRes.data.used }
+                      ? {
+                          ...c,
+                          used: cRes.data.used,
+                          total_spend: cRes.data.total_spend,
+                        }
                       : c,
                   ),
                 );
@@ -321,14 +331,27 @@ export default function MoneyTrackerPage({ darkMode }) {
                 const newUsed = isBill
                   ? cardMatch.used + txToDelete.amount
                   : Math.max(0, cardMatch.used - txToDelete.amount);
+                const newTotalSpend = isBill
+                  ? cardMatch.total_spend || 0
+                  : Math.max(
+                      0,
+                      (cardMatch.total_spend || 0) - txToDelete.amount,
+                    );
 
                 api
-                  .put(`/money/cards/${cardMatch.id}`, { used: newUsed })
+                  .put(`/money/cards/${cardMatch.id}`, {
+                    used: newUsed,
+                    total_spend: newTotalSpend,
+                  })
                   .then((cRes) => {
                     setCreditCards((cards) =>
                       cards.map((c) =>
                         c.id === cardMatch.id
-                          ? { ...c, used: cRes.data.used }
+                          ? {
+                              ...c,
+                              used: cRes.data.used,
+                              total_spend: cRes.data.total_spend,
+                            }
                           : c,
                       ),
                     );
@@ -383,6 +406,9 @@ export default function MoneyTrackerPage({ darkMode }) {
       name: newCardData.name,
       limit: parseFloat(newCardData.limit),
       used: newCardData.used ? parseFloat(newCardData.used) : 0,
+      total_spend: newCardData.totalSpend
+        ? parseFloat(newCardData.totalSpend)
+        : 0,
       color: randomColor,
       due_date: newCardData.dueDate ? parseInt(newCardData.dueDate) : null,
     };
@@ -395,7 +421,13 @@ export default function MoneyTrackerPage({ darkMode }) {
       .catch(console.error);
 
     setAddCardModalOpen(false);
-    setNewCardData({ name: "", limit: "", used: "", dueDate: "" });
+    setNewCardData({
+      name: "",
+      limit: "",
+      used: "",
+      totalSpend: "",
+      dueDate: "",
+    });
   };
 
   const handleEditCard = (e) => {
@@ -406,6 +438,9 @@ export default function MoneyTrackerPage({ darkMode }) {
       name: editCardData.name,
       limit: parseFloat(editCardData.limit),
       used: editCardData.used ? parseFloat(editCardData.used) : 0,
+      total_spend: editCardData.total_spend
+        ? parseFloat(editCardData.total_spend)
+        : 0,
       due_date: editCardData.dueDate ? parseInt(editCardData.dueDate) : null,
     };
 
@@ -1107,6 +1142,14 @@ export default function MoneyTrackerPage({ darkMode }) {
                           </span>{" "}
                           / {formatINR(card.limit)}
                         </span>
+
+                        {/* Show Total Spend on the card layout softly */}
+                        <span
+                          className={`text-[10px] font-outfit ml-2 ${darkMode ? "text-slate-500" : "text-slate-400"}`}
+                        >
+                          Spend: {formatINR(card.total_spend || 0)}
+                        </span>
+
                         {card.used > 0 && (
                           <button
                             onClick={() =>
@@ -2168,6 +2211,26 @@ export default function MoneyTrackerPage({ darkMode }) {
                 />
               </div>
 
+              <div>
+                <label
+                  className={`block text-xs font-bold mb-1.5 ${darkMode ? "text-slate-400" : "text-slate-600"}`}
+                >
+                  Total Spend History (Optional ₹)
+                </label>
+                <input
+                  type="number"
+                  value={newCardData.totalSpend}
+                  onChange={(e) =>
+                    setNewCardData({
+                      ...newCardData,
+                      totalSpend: e.target.value,
+                    })
+                  }
+                  className={`w-full px-4 py-3 rounded-xl outline-none font-inter font-semibold transition-all ${darkMode ? "bg-slate-900/50 border border-white/10 text-white focus:border-indigo-500" : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-indigo-400"}`}
+                  placeholder="0"
+                />
+              </div>
+
               <div className="flex gap-3 mt-4">
                 <button
                   type="button"
@@ -2343,6 +2406,26 @@ export default function MoneyTrackerPage({ darkMode }) {
                 />
               </div>
 
+              <div>
+                <label
+                  className={`block text-xs font-bold mb-1.5 ${darkMode ? "text-slate-400" : "text-slate-600"}`}
+                >
+                  Total Spend History (Optional ₹)
+                </label>
+                <input
+                  type="number"
+                  value={editCardData.total_spend ?? ""}
+                  onChange={(e) =>
+                    setEditCardData({
+                      ...editCardData,
+                      total_spend: e.target.value,
+                    })
+                  }
+                  className={`w-full px-4 py-3 rounded-xl outline-none font-inter font-semibold transition-all ${darkMode ? "bg-slate-900/50 border border-white/10 text-white focus:border-indigo-500" : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-indigo-400"}`}
+                  placeholder="0"
+                />
+              </div>
+
               <div className="flex gap-3 mt-4">
                 <button
                   type="button"
@@ -2402,10 +2485,18 @@ export default function MoneyTrackerPage({ darkMode }) {
                     <div className="flex gap-6">
                       <div>
                         <p className="text-white/60 text-[10px] font-outfit uppercase">
-                          Total Spent
+                          Mo. Spend
                         </p>
                         <p className="text-white text-lg font-black font-inter">
                           {formatINR(totalSpent)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-white/60 text-[10px] font-outfit uppercase">
+                          Total Spend
+                        </p>
+                        <p className="text-white text-lg font-black font-inter">
+                          {formatINR(viewCardTx.total_spend || 0)}
                         </p>
                       </div>
                       <div>
@@ -2460,8 +2551,13 @@ export default function MoneyTrackerPage({ darkMode }) {
                             </p>
                           </div>
                         </div>
-                        <span className="text-sm font-extrabold font-inter text-rose-500">
-                          -{formatINR(tx.amount)}
+                        <span
+                          className={`text-sm font-extrabold font-inter ${tx.category.startsWith("Credit Card Bill") ? "text-emerald-500" : "text-rose-500"}`}
+                        >
+                          {tx.category.startsWith("Credit Card Bill")
+                            ? "+"
+                            : "-"}
+                          {formatINR(tx.amount)}
                         </span>
                       </div>
                     ))

@@ -10,6 +10,9 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(256), nullable=False)
     daily_goal = db.Column(db.Integer, default=8, nullable=False)
+    role = db.Column(db.String(20), default='user', nullable=False) # 'user', 'admin', 'superadmin'
+    subscription_plan = db.Column(db.String(50), default='free', nullable=False) # 'free', 'pro', etc.
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationships
@@ -78,6 +81,7 @@ class CreditCard(db.Model):
     name = db.Column(db.String(255), nullable=False)
     limit = db.Column(db.Float, nullable=False, default=0.0)
     used = db.Column(db.Float, nullable=False, default=0.0)
+    total_spend = db.Column(db.Float, nullable=False, default=0.0)
     color = db.Column(db.String(100), nullable=False) # Store the tailwind gradient string
     due_date = db.Column(db.Integer, nullable=True) # Day of the month billing is due (1-31)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))

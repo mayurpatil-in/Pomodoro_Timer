@@ -15,6 +15,10 @@ class Config:
     # JWT Configuration
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'jwt-super-secret-key-change-in-production')
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(days=7)
+    
+    # Security Configurations
+    CORS_ORIGINS = os.environ.get('CORS_ORIGINS', 'http://localhost:5173').split(',')
+    RATELIMIT_STORAGE_URI = os.environ.get('RATELIMIT_STORAGE_URI', 'memory://')
 
 class DevelopmentConfig(Config):
     """Development configuration."""

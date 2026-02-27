@@ -132,7 +132,7 @@ export default function AnalyticsPage({ darkMode }) {
   ];
 
   return (
-    <div className="flex flex-col gap-6 max-w-5xl mx-auto w-full">
+    <div className="flex flex-col gap-6 w-full">
       {/* Page Header */}
       <div className="flex items-center gap-4">
         <div

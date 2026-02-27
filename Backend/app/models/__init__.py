@@ -24,6 +24,7 @@ class User(db.Model):
     lending_records = db.relationship('LendingRecord', backref='user', lazy='dynamic', cascade='all, delete-orphan')
     gym_days = db.relationship('GymDay', backref='user', lazy='dynamic', cascade='all, delete-orphan')
     projects = db.relationship('Project', backref='user', lazy='dynamic', cascade='all, delete-orphan')
+    interview_applications = db.relationship('InterviewApplication', backref='user', lazy='dynamic', cascade='all, delete-orphan')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -243,3 +244,31 @@ class ProjectActivity(db.Model):
     type = db.Column(db.String(50), nullable=False)  # 'status_change','task_added','task_completed','focus_session'
     message = db.Column(db.String(500), nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+class InterviewApplication(db.Model):
+    __tablename__ = 'interview_applications'
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
+    company_name = db.Column(db.String(255), nullable=False)
+    role = db.Column(db.String(255), nullable=False)
+    company_phone = db.Column(db.String(50), nullable=True)
+    company_email = db.Column(db.String(255), nullable=True)
+    expected_ctc = db.Column(db.String(100), nullable=True)
+    current_ctc = db.Column(db.String(100), nullable=True)
+    stage = db.Column(db.String(50), nullable=False, default='Applied') # Applied, HR Round, Technical Round, Final Round, Offer, Rejected
+    applied_date = db.Column(db.DateTime, nullable=True)
+    interview_date = db.Column(db.DateTime, nullable=True)
+    location_type = db.Column(db.String(50), nullable=True) # Remote, Onsite, Hybrid
+    referral = db.Column(db.String(10), nullable=True, default='No') # Yes, No
+    job_description = db.Column(db.Text, nullable=True)
+    job_portal_url = db.Column(db.String(255), nullable=True)
+    job_portal_username = db.Column(db.String(255), nullable=True)
+    job_portal_password = db.Column(db.String(255), nullable=True)
+    application_source = db.Column(db.String(100), nullable=True, default='Company Website')
+    resume_version = db.Column(db.String(255), nullable=True)
+    interviewers = db.Column(db.Text, nullable=False, default='[]') # JSON text: [{name, role, linkedin}]
+    notes = db.Column(db.Text, nullable=True)
+    questions = db.Column(db.Text, nullable=False, default='[]') # JSON text for storing questions per round
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

@@ -13,6 +13,7 @@ import MoneyTrackerPage from "./pages/MoneyTrackerPage";
 import TrackReportPage from "./pages/TrackReportPage";
 import GymTrackerPage from "./pages/GymTrackerPage";
 import ProjectTrackerPage from "./pages/ProjectTrackerPage";
+import InterviewTrackerPage from "./pages/InterviewTrackerPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardLayout from "./components/DashboardLayout";
 import { useAuth } from "./context/AuthContext";
@@ -83,6 +84,10 @@ function App() {
           <Route
             path="/projects"
             element={<ProjectTrackerPage darkMode={darkMode} />}
+          />
+          <Route
+            path="/interviews"
+            element={<InterviewTrackerPage darkMode={darkMode} />}
           />
           <Route
             path="/admin/users"

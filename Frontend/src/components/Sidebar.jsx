@@ -15,6 +15,7 @@ import {
   Users as UsersIcon,
   LogOut,
   Dumbbell as GymIcon,
+  Briefcase as BriefcaseIcon,
 } from "lucide-react";
 
 // ── Navigation Structure ──────────────────────────────────────────
@@ -37,6 +38,7 @@ const NAV_GROUPS = [
       { name: "Reports", path: "/reports", icon: ReportIcon },
       { name: "Gym", path: "/gym", icon: GymIcon },
       { name: "Projects", path: "/projects", icon: GoalIcon },
+      { name: "Interviews", path: "/interviews", icon: BriefcaseIcon },
     ],
   },
   {

@@ -21,6 +21,7 @@ import {
   Edit2,
   Trash2,
 } from "lucide-react";
+import CustomConfirmModal from "../components/CustomConfirmModal";
 import {
   PieChart as RechartsPieChart,
   Pie,
@@ -2783,55 +2784,23 @@ export default function MoneyTrackerPage({ darkMode }) {
         </div>
       )}
 
-      {/* ── Delete Confirmation Modal ── */}
-      {isDeleteModalOpen && deleteData && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setIsDeleteModalOpen(false)}
-          />
-          <div
-            className={`relative w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden p-6 ${darkMode ? "bg-[#161b22] border border-white/10" : "bg-white"}`}
-          >
-            <div className="flex flex-col items-center text-center">
-              <div
-                className={`w-12 h-12 rounded-full flex items-center justify-center mb-4 ${darkMode ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-600"}`}
-              >
-                <Trash2 size={24} />
-              </div>
-              <h3
-                className={`text-lg font-semibold mb-2 ${darkMode ? "text-white" : "text-slate-900"}`}
-              >
-                {deleteData.title}
-              </h3>
-              <p
-                className={`text-sm mb-6 ${darkMode ? "text-slate-400" : "text-slate-500"}`}
-              >
-                {deleteData.message}
-              </p>
-
-              <div className="flex gap-3 w-full">
-                <button
-                  onClick={() => setIsDeleteModalOpen(false)}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-                    darkMode
-                      ? "bg-white/10 hover:bg-white/20 text-white"
-                      : "bg-slate-100 hover:bg-slate-200 text-slate-900"
-                  }`}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={confirmDelete}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors bg-red-600 hover:bg-red-700"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Custom Confirmation Modal */}
+      <CustomConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setDeleteData(null);
+        }}
+        onConfirm={confirmDelete}
+        title={deleteData?.title || "Confirm Delete"}
+        message={
+          deleteData?.message || "Are you sure you want to perform this action?"
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="delete"
+        darkMode={darkMode}
+      />
     </div>
   );
 }

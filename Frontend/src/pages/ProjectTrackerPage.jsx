@@ -31,15 +31,8 @@ import {
   Activity,
 } from "lucide-react";
 import confetti from "canvas-confetti";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-} from "recharts";
+import { Cell } from "recharts";
+import CustomConfirmModal from "../components/CustomConfirmModal";
 import {
   DndContext,
   DragOverlay,
@@ -171,6 +164,8 @@ export default function ProjectTrackerPage({ darkMode }) {
   const notesSaveTimer = useRef(null);
   const [projectActivities, setProjectActivities] = useState([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState(null);
 
   const fireConfetti = () => {
     confetti({
@@ -223,14 +218,21 @@ export default function ProjectTrackerPage({ darkMode }) {
     }
   };
 
-  const handleDeleteProject = async (id) => {
-    if (window.confirm("Are you sure you want to delete this project?")) {
-      try {
-        await api.delete(`/projects/${id}`);
-        fetchProjects();
-      } catch (error) {
-        console.error("Error deleting project:", error);
-      }
+  const handleDeleteProject = (id) => {
+    setProjectToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDeleteProject = async () => {
+    if (!projectToDelete) return;
+    try {
+      await api.delete(`/projects/${projectToDelete}`);
+      fetchProjects();
+    } catch (error) {
+      console.error("Error deleting project:", error);
+    } finally {
+      setIsDeleteModalOpen(false);
+      setProjectToDelete(null);
     }
   };
 
@@ -1831,6 +1833,21 @@ export default function ProjectTrackerPage({ darkMode }) {
           </div>
         </div>
       )}
+
+      <CustomConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setProjectToDelete(null);
+        }}
+        onConfirm={confirmDeleteProject}
+        title="Delete Project"
+        message="Are you sure you want to delete this project? This will permanently remove the project and all associated tasks."
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="delete"
+        darkMode={darkMode}
+      />
     </div>
   );
 }

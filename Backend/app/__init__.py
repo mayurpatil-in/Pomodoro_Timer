@@ -57,4 +57,14 @@ def create_app(config_name='default'):
     def health_check():
         return {'status': 'ok'}, 200
 
+    # Catch-all route for the React Frontend
+    @app.route('/', defaults={'path': ''})
+    @app.route('/<path:path>')
+    def catch_all(path):
+        from flask import send_file
+        import os
+        # Assuming the Python app runs in domains/api.mayurpatil.in/pomodoro_backend
+        # Adjust the path to jump out out to domains/api.mayurpatil.in/public_html/index.html
+        return send_file(os.path.join(app.root_path, '..', '..', 'public_html', 'index.html'))
+
     return app

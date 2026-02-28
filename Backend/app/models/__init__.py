@@ -13,6 +13,7 @@ class User(db.Model):
     role = db.Column(db.String(20), default='user', nullable=False) # 'user', 'admin', 'superadmin'
     subscription_plan = db.Column(db.String(50), default='free', nullable=False) # 'free', 'pro', etc.
     is_active = db.Column(db.Boolean, default=True, nullable=False)
+    dashboard_preferences = db.Column(db.Text, default='[]') # JSON array of widget layout orders/visibility
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationships
@@ -25,6 +26,7 @@ class User(db.Model):
     gym_days = db.relationship('GymDay', backref='user', lazy='dynamic', cascade='all, delete-orphan')
     projects = db.relationship('Project', backref='user', lazy='dynamic', cascade='all, delete-orphan')
     interview_applications = db.relationship('InterviewApplication', backref='user', lazy='dynamic', cascade='all, delete-orphan')
+    goals = db.relationship('Goal', backref='user', lazy='dynamic', cascade='all, delete-orphan')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -272,3 +274,58 @@ class InterviewApplication(db.Model):
     questions = db.Column(db.Text, nullable=False, default='[]') # JSON text for storing questions per round
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+
+# Join table for goal dependencies
+goal_dependencies = db.Table('goal_dependencies',
+    db.Column('goal_id', db.String(36), db.ForeignKey('goals.id'), primary_key=True),
+    db.Column('depends_on_id', db.String(36), db.ForeignKey('goals.id'), primary_key=True)
+)
+
+class Goal(db.Model):
+    __tablename__ = 'goals'
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
+    type = db.Column(db.String(10), nullable=False, default='short')  # 'short' or 'long'
+    title = db.Column(db.String(500), nullable=False)
+    description = db.Column(db.Text, nullable=True, default='')
+    deadline = db.Column(db.String(20), nullable=True)   # YYYY-MM-DD
+    priority = db.Column(db.String(10), nullable=False, default='medium')  # 'low', 'medium', 'high'
+    status = db.Column(db.String(20), nullable=False, default='todo')  # 'todo', 'inprogress', 'done'
+    category = db.Column(db.String(100), nullable=True)
+    color = db.Column(db.String(50), nullable=True)
+    is_archived = db.Column(db.Boolean, nullable=False, default=False)
+    is_pinned = db.Column(db.Boolean, nullable=False, default=False)
+    notes = db.Column(db.Text, nullable=True, default='')
+    order = db.Column(db.Integer, nullable=False, default=0)
+    recurrence = db.Column(db.String(20), nullable=True) # e.g., 'daily', 'weekly', 'monthly'
+    streak_count = db.Column(db.Integer, nullable=False, default=0)
+    last_streak_date = db.Column(db.String(20), nullable=True) # YYYY-MM-DD
+    project_id = db.Column(db.String(36), db.ForeignKey('projects.id'), nullable=True)
+    image_url = db.Column(db.String(500), nullable=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    steps = db.relationship('GoalStep', backref='goal', lazy='dynamic', cascade='all, delete-orphan', order_by='GoalStep.created_at')
+    
+    dependencies = db.relationship(
+        'Goal', 
+        secondary=goal_dependencies,
+        primaryjoin=(goal_dependencies.c.goal_id == id),
+        secondaryjoin=(goal_dependencies.c.depends_on_id == id),
+        backref=db.backref('depended_on_by', lazy='dynamic'),
+        lazy='dynamic'
+    )
+
+
+class GoalStep(db.Model):
+    __tablename__ = 'goal_steps'
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    goal_id = db.Column(db.String(36), db.ForeignKey('goals.id'), nullable=False)
+    text = db.Column(db.String(500), nullable=False)
+    done = db.Column(db.Boolean, default=False, nullable=False)
+    is_milestone = db.Column(db.Boolean, default=False, nullable=False)
+    deadline = db.Column(db.String(20), nullable=True)   # YYYY-MM-DD
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))

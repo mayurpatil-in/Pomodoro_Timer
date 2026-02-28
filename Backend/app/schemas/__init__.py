@@ -7,6 +7,7 @@ class UserSchema(Schema):
     role = fields.String()
     subscription_plan = fields.String()
     is_active = fields.Boolean()
+    dashboard_preferences = fields.String()
     created_at = fields.DateTime(dump_only=True)
 
 class TaskSchema(Schema):

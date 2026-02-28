@@ -26,6 +26,12 @@ export function AuthProvider({ children }) {
   const [timerProject, setTimerProject] = useState(null); // Selected Project ID
   const [timerTask, setTimerTask] = useState(null); // Selected Project Task ID
 
+  // A global trigger to force the Header notification bell to refetch.
+  const [notificationRefreshTrigger, setNotificationRefreshTrigger] =
+    useState(0);
+  const triggerNotificationRefresh = () =>
+    setNotificationRefreshTrigger((prev) => prev + 1);
+
   useEffect(() => {
     const loadUser = async () => {
       const token = localStorage.getItem("pomodoroToken");
@@ -83,6 +89,18 @@ export function AuthProvider({ children }) {
     return response.data;
   };
 
+  const updateDashboardPreferences = async (preferencesJSONStr) => {
+    if (!user) return;
+    try {
+      const response = await api.put("/auth/me", {
+        dashboard_preferences: preferencesJSONStr,
+      });
+      setUser(response.data);
+    } catch (err) {
+      console.error("Failed to update dashboard preferences", err);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -93,6 +111,7 @@ export function AuthProvider({ children }) {
         logout,
         updateDailyGoal,
         updatePassword,
+        updateDashboardPreferences,
         api,
         activeTask,
         setActiveTask,
@@ -100,6 +119,8 @@ export function AuthProvider({ children }) {
         setTimerProject,
         timerTask,
         setTimerTask,
+        notificationRefreshTrigger,
+        triggerNotificationRefresh,
       }}
     >
       {!loading && children}

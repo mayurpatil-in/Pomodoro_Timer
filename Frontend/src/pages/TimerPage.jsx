@@ -29,6 +29,10 @@ export default function TimerPage({ darkMode }) {
     setSelectedProjectId,
     selectedTaskId,
     setSelectedTaskId,
+    skipTimer,
+    addTime,
+    isMuted,
+    setIsMuted,
   } = useTimer();
 
   const { api, activeTask, setActiveTask } = useAuth();
@@ -49,6 +53,20 @@ export default function TimerPage({ darkMode }) {
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
   const tasksForProject = selectedProject?.tasks || [];
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Sync React state if user exits via 'Esc' key natively
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        setIsFullscreen(false);
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
   const quoteIndex = sessionCount % QUOTES.length;
 
   const isPomo = mode === "pomodoro";
@@ -110,6 +128,10 @@ export default function TimerPage({ darkMode }) {
           isActive={isActive}
           toggleTimer={toggleTimer}
           resetTimer={resetTimer}
+          skipTimer={skipTimer}
+          addTime={addTime}
+          isMuted={isMuted}
+          setIsMuted={setIsMuted}
           mode={mode}
           darkMode={darkMode}
         />
@@ -371,6 +393,28 @@ export default function TimerPage({ darkMode }) {
               </div>
             </div>
           </div>
+
+          {/* 4-Pomodoro Cycle Dots */}
+          <div className="flex items-center gap-2 mt-1">
+            {[1, 2, 3, 4].map((dot) => {
+              // Calculate how many sessions in the current 4-cycle are done
+              const currentCycleCount = sessionCount % 4;
+
+              // A dot is "filled" if its index is <= the number of sessions we've done in this block of 4
+              // Or if sessionCount is exactly a multiple of 4 > 0, we're currently ON a long break, meaning ALL 4 dots are full
+              // But usually, they reset when we go back to Pomodoro.
+              const isCompleted =
+                sessionCount > 0 &&
+                (sessionCount % 4 === 0 ? true : dot <= currentCycleCount);
+
+              return (
+                <div
+                  key={dot}
+                  className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${isCompleted ? (isPomo ? "bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]" : "bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.5)]") : darkMode ? "bg-white/10" : "bg-black/10"}`}
+                />
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -380,6 +424,10 @@ export default function TimerPage({ darkMode }) {
           isActive={isActive}
           toggleTimer={toggleTimer}
           resetTimer={resetTimer}
+          skipTimer={skipTimer}
+          addTime={addTime}
+          isMuted={isMuted}
+          setIsMuted={setIsMuted}
           mode={mode}
           darkMode={darkMode}
         />

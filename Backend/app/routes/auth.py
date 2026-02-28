@@ -51,7 +51,12 @@ def update_me():
     data = request.get_json()
     if 'daily_goal' in data:
         user.daily_goal = int(data['daily_goal'])
-        db.session.commit()
+        
+    if 'dashboard_preferences' in data:
+        # Expected to be a JSON string of the layout order
+        user.dashboard_preferences = data['dashboard_preferences']
+        
+    db.session.commit()
 
     return jsonify(user_schema.dump(user)), 200
 

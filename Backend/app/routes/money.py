@@ -5,13 +5,18 @@ from app.models import db, CreditCard, MoneyTransaction, AssetAllocation, Lendin
 
 bp = Blueprint('money', __name__, url_prefix='/api/money')
 
-@bp.route('/data', methods=['GET'])
+@bp.route('/summary', methods=['GET'])
 @jwt_required()
-def get_money_data():
+def get_money_summary():
+    """
+    Returns high-level money data (cards, assets, lending, and monthly totals)
+    without loading all transactions into memory.
+    """
     user_id = get_jwt_identity()
+    month = request.args.get('month', type=int)
+    year = request.args.get('year', type=int)
     
     cards = CreditCard.query.filter_by(user_id=user_id).order_by(CreditCard.created_at.desc()).all()
-    txs = MoneyTransaction.query.filter_by(user_id=user_id).order_by(MoneyTransaction.date.desc(), MoneyTransaction.created_at.desc()).all()
     assets = AssetAllocation.query.filter_by(user_id=user_id).all()
     
     # Initialize defaults if the user has no assets yet to prevent frontend crash
@@ -26,7 +31,39 @@ def get_money_data():
         db.session.commit()
         assets = default_assets
 
+    total_income = 0
+    total_expense = 0
+    category_breakdown = []
+    
+    # Calculate monthly totals and breakdown if month/year are provided
+    if month and year:
+        month_prefix = f"{year}-{month:02d}"
+        monthly_txs = MoneyTransaction.query.filter(
+            MoneyTransaction.user_id == user_id,
+            MoneyTransaction.date.startswith(month_prefix)
+        ).all()
+        
+        total_income = sum(t.amount for t in monthly_txs if t.type == 'income')
+        total_expense = sum(t.amount for t in monthly_txs if t.type == 'expense')
+        
+        # Calculate category breakdown for expenses
+        breakdown_dict = {}
+        for t in monthly_txs:
+            if t.type == 'expense':
+                # Remove payment method suffix for aggregation (e.g. "Food (Cash)" -> "Food")
+                import re
+                cat = re.sub(r'\s\([^)]+\)$', '', t.category)
+                breakdown_dict[cat] = breakdown_dict.get(cat, 0) + t.amount
+        
+        category_breakdown = [
+            {'name': name, 'value': amount} 
+            for name, amount in sorted(breakdown_dict.items(), key=lambda x: x[1], reverse=True)
+        ]
+
     return jsonify({
+        'totalIncome': total_income,
+        'totalExpense': total_expense,
+        'categoryBreakdown': category_breakdown,
         'creditCards': [{
             'id': c.id,
             'name': c.name,
@@ -36,18 +73,6 @@ def get_money_data():
             'color': c.color,
             'due_date': c.due_date
         } for c in cards],
-        
-        'transactions': [{
-            'id': t.id,
-            'type': t.type,
-            'category': t.category,
-            'amount': t.amount,
-            'date': t.date,
-            'icon': t.id, 
-            'color': 'default', 
-            'bg': 'default' 
-        } for t in txs],
-        
         'assets': [{
             'id': a.id,
             'type': a.type,
@@ -55,7 +80,6 @@ def get_money_data():
             'amount': a.amount,
             'color': a.color
         } for a in assets],
-        
         'lendingRecords': [{
             'id': r.id,
             'borrower': r.borrower,
@@ -72,6 +96,98 @@ def get_money_data():
                 'notes': h.notes
             } for h in r.transactions.order_by(LendingTransaction.date.desc(), LendingTransaction.created_at.desc()).all()]
         } for r in LendingRecord.query.filter_by(user_id=user_id).order_by(LendingRecord.created_at.desc()).all()]
+    }), 200
+
+@bp.route('/transactions/paginated', methods=['GET'])
+@jwt_required()
+def get_paginated_transactions():
+    """
+    Returns a paginated list of transactions, optionally filtered by month/year.
+    """
+    user_id = get_jwt_identity()
+    month = request.args.get('month', type=int)
+    year = request.args.get('year', type=int)
+    skip = request.args.get('skip', default=0, type=int)
+    limit = request.args.get('limit', default=50, type=int)
+    
+    query = MoneyTransaction.query.filter_by(user_id=user_id)
+    
+    if month and year:
+        month_prefix = f"{year}-{month:02d}"
+        query = query.filter(MoneyTransaction.date.startswith(month_prefix))
+        
+    txs = query.order_by(MoneyTransaction.date.desc(), MoneyTransaction.created_at.desc()).offset(skip).limit(limit).all()
+    # Also return total count to let the frontend know if there's more data to load
+    total_count = query.count()
+    
+    return jsonify({
+        'total': total_count,
+        'transactions': [{
+            'id': t.id,
+            'type': t.type,
+            'category': t.category,
+            'amount': t.amount,
+            'date': t.date,
+            'icon': t.id, 
+            'color': 'default', 
+            'bg': 'default' 
+        } for t in txs]
+    }), 200
+
+@bp.route('/data', methods=['GET'])
+@jwt_required()
+def get_all_money_data():
+    """
+    [DEPRECATED] Returns all money data in one go. 
+    Maintained for backward compatibility with older pages (e.g. TrackReportPage).
+    """
+    user_id = get_jwt_identity()
+    
+    cards = CreditCard.query.filter_by(user_id=user_id).order_by(CreditCard.created_at.desc()).all()
+    transactions = MoneyTransaction.query.filter_by(user_id=user_id).order_by(MoneyTransaction.date.desc(), MoneyTransaction.created_at.desc()).all()
+    assets = AssetAllocation.query.filter_by(user_id=user_id).all()
+    lending = LendingRecord.query.filter_by(user_id=user_id).order_by(LendingRecord.created_at.desc()).all()
+    
+    return jsonify({
+        'creditCards': [{
+            'id': c.id,
+            'name': c.name,
+            'limit': c.limit,
+            'used': c.used,
+            'total_spend': c.total_spend,
+            'color': c.color,
+            'due_date': c.due_date
+        } for c in cards],
+        'transactions': [{
+            'id': t.id,
+            'type': t.type,
+            'category': t.category,
+            'amount': t.amount,
+            'date': t.date
+        } for t in transactions],
+        'assets': [{
+            'id': a.id,
+            'type': a.type,
+            'label': a.label,
+            'amount': a.amount,
+            'color': a.color
+        } for a in assets],
+        'lendingRecords': [{
+            'id': r.id,
+            'borrower': r.borrower,
+            'total_lent': r.total_lent,
+            'returned': r.returned,
+            'due_date': r.due_date,
+            'notes': r.notes,
+            'outstanding': round(r.total_lent - r.returned, 2),
+            'history': [{
+                'id': h.id,
+                'amount': h.amount,
+                'type': h.type,
+                'date': h.date,
+                'notes': h.notes
+            } for h in r.transactions.order_by(LendingTransaction.date.desc(), LendingTransaction.created_at.desc()).all()]
+        } for r in lending]
     }), 200
 
 # ── Lending Records ──

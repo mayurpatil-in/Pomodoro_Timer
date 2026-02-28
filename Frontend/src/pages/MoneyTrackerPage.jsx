@@ -81,26 +81,170 @@ const formatINR = (amount) => {
 
 // ── Main Component ─────────────────────────────────────────────────────
 export default function MoneyTrackerPage({ darkMode }) {
-  const { api, user } = useAuth();
+  const { api, user, triggerNotificationRefresh } = useAuth();
   const [transactions, setTransactions] = useState([]);
   const [creditCards, setCreditCards] = useState([]);
   const [assets, setAssets] = useState([]);
   const [lendingRecords, setLendingRecords] = useState([]);
+  const [totalIncome, setTotalIncome] = useState(0);
+  const [totalExpense, setTotalExpense] = useState(0);
+  const [expenseBreakdown, setExpenseBreakdown] = useState([]);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [serverLoadedCount, setServerLoadedCount] = useState(0);
+  const LIMIT = 50;
 
-  // Fetch data on load
+  // New month selector state
+  const [currentDate, setCurrentDate] = useState(new Date());
+
+  // Fetch summary and initial transactions when month changes
   useEffect(() => {
     if (user && api) {
+      setTransactions([]); // Reset on month change
+      setHasMore(true);
+
+      const month = currentDate.getMonth() + 1;
+      const year = currentDate.getFullYear();
+
+      // 1. Fetch Month Summary
       api
-        .get("/money/data")
+        .get(`/money/summary?month=${month}&year=${year}`)
         .then((res) => {
+          setTotalIncome(res.data.totalIncome);
+          setTotalExpense(res.data.totalExpense);
+          setExpenseBreakdown(res.data.categoryBreakdown || []);
           setCreditCards(res.data.creditCards);
-          setTransactions(res.data.transactions.map(mapTransactionStyle));
           setAssets(res.data.assets);
           setLendingRecords(res.data.lendingRecords || []);
         })
         .catch(console.error);
+
+      // 2. Fetch Initial Transactions
+      fetchTransactions(0, month, year);
     }
-  }, [user, api]);
+  }, [user, api, currentDate]);
+
+  const fetchTransactions = (skip, month, year) => {
+    setIsLoadingMore(true);
+    api
+      .get(
+        `/money/transactions/paginated?month=${month}&year=${year}&skip=${skip}&limit=${LIMIT}`,
+      )
+      .then((res) => {
+        const newTxs = res.data.transactions.map(mapTransactionStyle);
+        if (skip === 0) {
+          setTransactions(newTxs);
+          setServerLoadedCount(newTxs.length);
+        } else {
+          setTransactions((prev) => [...prev, ...newTxs]);
+          setServerLoadedCount((prev) => prev + newTxs.length);
+        }
+
+        // Check if there's more data to load based on the total count returned by backend
+        setHasMore(skip + LIMIT < res.data.total);
+      })
+      .catch(console.error)
+      .finally(() => setIsLoadingMore(false));
+  };
+
+  const handleLoadMore = () => {
+    if (!isLoadingMore && hasMore) {
+      const month = currentDate.getMonth() + 1;
+      const year = currentDate.getFullYear();
+      fetchTransactions(serverLoadedCount, month, year);
+    }
+  };
+
+  // Handle Notifications on load for Due Dates
+  useEffect(() => {
+    const checkAndNotify = () => {
+      // First, always request permission if not determined
+      if ("Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission().then((permission) => {
+          if (permission === "granted") {
+            checkAndNotify(); // Re-run if just granted
+          }
+        });
+        return;
+      }
+
+      if (
+        "Notification" in window &&
+        Notification.permission === "granted" &&
+        creditCards.length > 0
+      ) {
+        const now = new Date();
+        const today = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate(),
+        );
+        const currentYear = today.getFullYear();
+        const currentMonth = today.getMonth();
+        const currentDay = today.getDate();
+
+        creditCards.forEach((card) => {
+          if (card.due_date && card.used > 0) {
+            // Check if user already saw notification today for this card
+            const notificationKey = `notify_card_${card.id}_${currentYear}_${currentMonth}_${currentDay}`;
+            if (!localStorage.getItem(notificationKey)) {
+              // Create a date object for the due date in the current month
+              let dueDateThisMonth = new Date(
+                currentYear,
+                currentMonth,
+                card.due_date,
+              );
+              dueDateThisMonth.setHours(0, 0, 0, 0);
+
+              // If the due date has already passed this month, the next due date is next month
+              if (dueDateThisMonth < today) {
+                // Check if the due date is within the first few days of the NEXT month, and we are at the end of THIS month.
+                dueDateThisMonth = new Date(
+                  currentYear,
+                  currentMonth + 1,
+                  card.due_date,
+                );
+                dueDateThisMonth.setHours(0, 0, 0, 0);
+              }
+
+              // Calculate difference in time
+              const diffTime = dueDateThisMonth.getTime() - today.getTime();
+              // Calculate difference in days (ignoring hours/minutes exact differences, just rough days)
+              const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+              if (diffDays >= 0 && diffDays <= 3) {
+                const notif = new Notification(`Credit Card Bill Due Soon!`, {
+                  body: `Your ${card.name} bill is due in ${diffDays} day(s) on the ${card.due_date}th. Current balance: ${formatINR(card.used)}.`,
+                  icon: "/favicon.ico",
+                });
+
+                // Keep track of active notifications on the window object so we can close them programmatically
+                if (!window.activeCardNotifications) {
+                  window.activeCardNotifications = {};
+                }
+                window.activeCardNotifications[card.id] = notif;
+
+                localStorage.setItem(notificationKey, "true");
+              }
+            }
+          } else {
+            // If card is paid off or has no due date, forcibly close any active notification bound to it
+            if (
+              window.activeCardNotifications &&
+              window.activeCardNotifications[card.id]
+            ) {
+              window.activeCardNotifications[card.id].close();
+              delete window.activeCardNotifications[card.id];
+            }
+          }
+        });
+      }
+    };
+
+    // Small delay to ensure render is done
+    const timer = setTimeout(checkAndNotify, 2000);
+    return () => clearTimeout(timer);
+  }, [creditCards, transactions]); // Re-run if transactions change (e.g. bill paid)
 
   // Modals state
   const [isAddModalOpen, setAddModalOpen] = useState(false);
@@ -137,6 +281,13 @@ export default function MoneyTrackerPage({ darkMode }) {
           setTransactions((txs) => txs.filter((tx) => tx.id !== txId));
 
           if (txToDelete) {
+            // Update Totals
+            if (txToDelete.type === "income") {
+              setTotalIncome((prev) => Math.max(0, prev - txToDelete.amount));
+            } else if (txToDelete.type === "expense") {
+              setTotalExpense((prev) => Math.max(0, prev - txToDelete.amount));
+            }
+
             // Revert Credit Card Balance
             if (txToDelete.type === "expense") {
               const cardMatch = creditCards.find((c) =>
@@ -221,12 +372,12 @@ export default function MoneyTrackerPage({ darkMode }) {
         .catch(console.error);
     }
 
+    if (triggerNotificationRefresh) {
+      triggerNotificationRefresh();
+    }
     setIsDeleteModalOpen(false);
     setDeleteData(null);
   };
-
-  // Month tracking state
-  const [currentDate, setCurrentDate] = useState(new Date("2026-02-01"));
 
   const handlePrevMonth = () => {
     setCurrentDate(
@@ -523,6 +674,26 @@ export default function MoneyTrackerPage({ darkMode }) {
         setCreditCards((cards) =>
           cards.map((c) => (c.id === cRes.data.id ? cRes.data : c)),
         );
+
+        // Also clear the notification flag from localStorage so that future bills trigger notifications again
+        const now = new Date();
+        const notificationKey = `notify_card_${payBillData.cardId}_${now.getFullYear()}_${now.getMonth()}_${now.getDate()}`;
+        localStorage.removeItem(notificationKey);
+
+        // Also close the notifications visually if any were spawned by the browser
+        if (
+          "Notification" in window &&
+          window.activeCardNotifications &&
+          window.activeCardNotifications[payBillData.cardId]
+        ) {
+          window.activeCardNotifications[payBillData.cardId].close();
+          delete window.activeCardNotifications[payBillData.cardId];
+        }
+
+        // Also trigger the Header Notification bell to refresh its count immediately
+        if (triggerNotificationRefresh) {
+          triggerNotificationRefresh();
+        }
       })
       .catch(console.error);
 
@@ -641,40 +812,8 @@ export default function MoneyTrackerPage({ darkMode }) {
       .catch(console.error);
   };
 
-  // Filter transactions by selected month/year
-  const filteredTransactions = transactions.filter((t) => {
-    const txDate = new Date(t.date);
-    return (
-      txDate.getMonth() === currentDate.getMonth() &&
-      txDate.getFullYear() === currentDate.getFullYear()
-    );
-  });
-
-  // Derived stats
-  const totalIncome = filteredTransactions
-    .filter((t) => t.type === "income")
-    .reduce((acc, curr) => acc + curr.amount, 0);
-  const totalExpense = filteredTransactions
-    .filter((t) => t.type === "expense")
-    .reduce((acc, curr) => acc + curr.amount, 0);
-  const totalInvested = assets.reduce((sum, item) => sum + item.amount, 0);
-  const netBalance = totalIncome - totalExpense;
-
-  // Chart Data Processing
-  const expenseByCategory = filteredTransactions
-    .filter((t) => t.type === "expense")
-    .reduce((acc, current) => {
-      // Clean up payment method suffix if present for cleaner chart labels
-      const cat = current.category.replace(/\s\([^)]+\)$/, "");
-      const existing = acc.find((item) => item.name === cat);
-      if (existing) {
-        existing.value += current.amount;
-      } else {
-        acc.push({ name: cat, value: current.amount });
-      }
-      return acc;
-    }, [])
-    .sort((a, b) => b.value - a.value);
+  // Chart Data Processing (now using backend aggregated breakdown)
+  const expenseByCategory = expenseBreakdown.length > 0 ? expenseBreakdown : [];
 
   // Colors for donut chart
   const CHART_COLORS = [
@@ -698,6 +837,9 @@ export default function MoneyTrackerPage({ darkMode }) {
       amount: totalExpense,
     },
   ];
+
+  const netBalance = totalIncome - totalExpense;
+  const totalInvested = assets.reduce((sum, item) => sum + item.amount, 0);
 
   return (
     <div className="flex flex-col gap-6 w-full min-h-full pb-8">
@@ -1021,15 +1163,24 @@ export default function MoneyTrackerPage({ darkMode }) {
                 Recent Transactions
               </h3>
               <button
+                onClick={() => {
+                  const el = document.getElementById(
+                    "recent-transactions-list",
+                  );
+                  if (el) el.scrollIntoView({ behavior: "smooth" });
+                }}
                 className={`text-sm font-semibold font-outfit ${darkMode ? "text-indigo-400 hover:text-indigo-300" : "text-indigo-600 hover:text-indigo-700"}`}
               >
                 View All
               </button>
             </div>
 
-            <div className="flex flex-col gap-1 flex-1">
-              {filteredTransactions.length > 0 ? (
-                filteredTransactions.map((tx) => (
+            <div
+              id="recent-transactions-list"
+              className="flex flex-col gap-1 flex-1"
+            >
+              {transactions.length > 0 ? (
+                transactions.map((tx) => (
                   <div
                     key={tx.id}
                     className={`group flex items-center justify-between p-3.5 rounded-2xl transition-all hover:scale-[1.01] cursor-pointer ${darkMode ? "hover:bg-white/5" : "hover:bg-slate-50"}`}
@@ -1117,6 +1268,20 @@ export default function MoneyTrackerPage({ darkMode }) {
                     You have no recorded transactions for {formattedMonthYear}.
                     Click "Add Entry" to log one.
                   </p>
+                </div>
+              )}
+
+              {/* Load More Button */}
+              {hasMore && (
+                <div className="flex justify-center mt-6 pt-2">
+                  <button
+                    onClick={handleLoadMore}
+                    disabled={isLoadingMore}
+                    className={`px-6 py-2.5 rounded-xl font-bold font-inter text-sm transition-all flex items-center gap-2 ${darkMode ? "bg-white/5 text-indigo-400 hover:bg-white/10" : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"}`}
+                  >
+                    {isLoadingMore ? "Loading..." : "Load More"}
+                    {!isLoadingMore && <ChevronRight size={16} />}
+                  </button>
                 </div>
               )}
             </div>
@@ -1953,71 +2118,137 @@ export default function MoneyTrackerPage({ darkMode }) {
             onClick={() => setAddModalOpen(false)}
           />
           <div
-            className={`relative w-full max-w-md rounded-3xl shadow-2xl overflow-hidden p-6 ${darkMode ? "bg-[#181824] border border-white/10" : "bg-white"}`}
+            className={`relative w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden ${darkMode ? "bg-[#12121a] border border-white/10 shadow-black/50" : "bg-white shadow-indigo-500/10"}`}
           >
-            <h2
-              className={`text-xl font-extrabold font-inter mb-6 ${darkMode ? "text-white" : "text-slate-900"}`}
+            {/* Header Area */}
+            <div
+              className={`px-8 pt-8 pb-6 ${darkMode ? "bg-white/[0.02]" : "bg-slate-50/50"}`}
             >
-              Add Transaction
-            </h2>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`p-2.5 rounded-xl ${darkMode ? "bg-indigo-500/20 text-indigo-400" : "bg-indigo-100 text-indigo-600"}`}
+                  >
+                    <Plus size={24} strokeWidth={2.5} />
+                  </div>
+                  <h2
+                    className={`text-2xl font-black font-inter tracking-tight ${darkMode ? "text-white" : "text-slate-900"}`}
+                  >
+                    Add Entry
+                  </h2>
+                </div>
+                <button
+                  onClick={() => setAddModalOpen(false)}
+                  className={`p-2 rounded-full transition-all ${darkMode ? "hover:bg-white/10 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-400 hover:text-slate-700"}`}
+                >
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M18 6 6 18" />
+                    <path d="m6 6 12 12" />
+                  </svg>
+                </button>
+              </div>
+              <p
+                className={`text-sm font-outfit ${darkMode ? "text-slate-400" : "text-slate-500"}`}
+              >
+                Record a new transaction, investment, or loan.
+              </p>
+            </div>
 
             <form
               onSubmit={handleAddTransaction}
-              className="flex flex-col gap-5"
+              className="flex flex-col gap-6 p-8 pt-2"
             >
               {/* Type selector */}
-              <div
-                className={`flex p-1 rounded-xl w-full ${darkMode ? "bg-slate-800" : "bg-slate-100"}`}
-              >
-                {["income", "expense", "investment"].map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => setFormData({ ...formData, type })}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-bold capitalize transition-all ${formData.type === type ? (darkMode ? "bg-slate-700 text-white shadow-sm" : "bg-white text-slate-800 shadow-sm") : darkMode ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-700"}`}
-                  >
-                    {type}
-                  </button>
-                ))}
-              </div>
-              <div
-                className={`flex p-1 rounded-xl w-full max-w-[66%] mx-auto ${darkMode ? "bg-slate-800" : "bg-slate-100"}`}
-              >
-                {["lending", "loan"].map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => setFormData({ ...formData, type })}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-bold capitalize transition-all ${formData.type === type ? (darkMode ? "bg-slate-700 text-white shadow-sm" : "bg-white text-slate-800 shadow-sm") : darkMode ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-700"}`}
-                  >
-                    {type}
-                  </button>
-                ))}
+              <div className="flex flex-col gap-2">
+                <div
+                  className={`flex p-1 rounded-2xl w-full ${darkMode ? "bg-slate-800/80 shadow-inner" : "bg-slate-100/80 shadow-inner"}`}
+                >
+                  {["income", "expense", "investment"].map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, type })}
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold capitalize transition-all duration-300 ${formData.type === type ? (darkMode ? "bg-slate-700 text-white shadow-md scale-[1.02]" : "bg-white text-slate-800 shadow-md scale-[1.02]") : darkMode ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-700"}`}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+                <div
+                  className={`flex p-1 rounded-2xl w-full max-w-[66%] mx-auto ${darkMode ? "bg-slate-800/80 shadow-inner" : "bg-slate-100/80 shadow-inner"}`}
+                >
+                  {["lending", "loan"].map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, type })}
+                      className={`flex-1 py-2 rounded-xl text-[13px] font-bold capitalize transition-all duration-300 ${formData.type === type ? (darkMode ? "bg-slate-700 text-white shadow-md scale-[1.02]" : "bg-white text-slate-800 shadow-md scale-[1.02]") : darkMode ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-700"}`}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Input Fields */}
-              <div className="space-y-4 mt-2">
-                <div>
-                  <label
-                    className={`block text-xs font-bold mb-1.5 ${darkMode ? "text-slate-400" : "text-slate-600"}`}
-                  >
-                    Amount (₹)
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={formData.amount}
-                    onChange={(e) =>
-                      setFormData({ ...formData, amount: e.target.value })
-                    }
-                    className={`w-full px-4 py-3 rounded-xl outline-none font-inter font-semibold transition-all ${darkMode ? "bg-slate-900/50 border border-white/10 text-white focus:border-indigo-500" : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-indigo-400"}`}
-                    placeholder="0.00"
-                  />
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-5">
+                  <div className="col-span-2 sm:col-span-1">
+                    <label
+                      className={`block text-[11px] font-black uppercase tracking-wider mb-2 ${darkMode ? "text-slate-500" : "text-slate-400"}`}
+                    >
+                      Amount
+                    </label>
+                    <div className="relative">
+                      <div
+                        className={`absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold ${darkMode ? "text-indigo-400" : "text-indigo-600"}`}
+                      >
+                        ₹
+                      </div>
+                      <input
+                        type="number"
+                        required
+                        value={formData.amount}
+                        onChange={(e) =>
+                          setFormData({ ...formData, amount: e.target.value })
+                        }
+                        className={`w-full pl-9 pr-4 py-3.5 rounded-2xl outline-none font-inter font-black text-lg transition-all ${darkMode ? "bg-slate-900/50 border border-white/5 text-white focus:border-indigo-500 focus:bg-slate-900" : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-indigo-400 focus:bg-white"}`}
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="col-span-2 sm:col-span-1">
+                    <label
+                      className={`block text-[11px] font-black uppercase tracking-wider mb-2 ${darkMode ? "text-slate-500" : "text-slate-400"}`}
+                    >
+                      Date
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={formData.date}
+                      onChange={(e) =>
+                        setFormData({ ...formData, date: e.target.value })
+                      }
+                      className={`w-full px-4 py-3.5 rounded-2xl outline-none font-outfit font-bold transition-all ${darkMode ? "bg-slate-900/50 border border-white/5 text-white focus:border-indigo-500 focus:bg-slate-900 hover:cursor-pointer" : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-indigo-400 focus:bg-white hover:cursor-pointer"}`}
+                      style={{ colorScheme: darkMode ? "dark" : "light" }}
+                    />
+                  </div>
                 </div>
 
                 <div>
                   <label
-                    className={`block text-xs font-bold mb-1.5 ${darkMode ? "text-slate-400" : "text-slate-600"}`}
+                    className={`block text-[11px] font-black uppercase tracking-wider mb-2 ${darkMode ? "text-slate-500" : "text-slate-400"}`}
                   >
                     {formData.type === "investment"
                       ? "Invest Into"
@@ -2025,103 +2256,144 @@ export default function MoneyTrackerPage({ darkMode }) {
                         ? "Lend To"
                         : "Category / Detail"}
                   </label>
-                  {formData.type === "investment" ? (
-                    <select
-                      required
-                      value={formData.category}
-                      onChange={(e) =>
-                        setFormData({ ...formData, category: e.target.value })
-                      }
-                      className={`w-full px-4 py-3 rounded-xl outline-none font-outfit transition-all appearance-none cursor-pointer ${darkMode ? "bg-slate-900/50 border border-white/10 text-white focus:border-indigo-500" : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-indigo-400"}`}
-                    >
-                      <option value="">Select asset category...</option>
-                      {assets.map((a) => (
-                        <option key={a.id} value={a.label}>
-                          {a.label}
-                        </option>
-                      ))}
-                    </select>
-                  ) : formData.type === "lending" &&
-                    lendingRecords.length > 0 ? (
-                    <select
-                      required
-                      value={formData.category}
-                      onChange={(e) =>
-                        setFormData({ ...formData, category: e.target.value })
-                      }
-                      className={`w-full px-4 py-3 rounded-xl outline-none font-outfit transition-all appearance-none cursor-pointer ${darkMode ? "bg-slate-900/50 border border-white/10 text-white focus:border-amber-500" : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-amber-400"}`}
-                    >
-                      <option value="">Select borrower...</option>
-                      {lendingRecords.map((r) => (
-                        <option key={r.id} value={r.borrower}>
-                          {r.borrower} — {formatINR(r.outstanding)} outstanding
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      required
-                      value={formData.category}
-                      onChange={(e) =>
-                        setFormData({ ...formData, category: e.target.value })
-                      }
-                      className={`w-full px-4 py-3 rounded-xl outline-none font-outfit transition-all ${darkMode ? "bg-slate-900/50 border border-white/10 text-white focus:border-indigo-500" : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-indigo-400"}`}
-                      placeholder="e.g. Groceries, Rent..."
-                    />
-                  )}
+                  <div className="relative">
+                    {formData.type === "investment" ? (
+                      <>
+                        <select
+                          required
+                          value={formData.category}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              category: e.target.value,
+                            })
+                          }
+                          className={`w-full px-4 py-3.5 rounded-2xl outline-none font-outfit font-semibold transition-all appearance-none cursor-pointer ${darkMode ? "bg-slate-900/50 border border-white/5 text-white focus:border-indigo-500 focus:bg-slate-900" : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-indigo-400 focus:bg-white"}`}
+                        >
+                          <option value="">Select asset category...</option>
+                          {assets.map((a) => (
+                            <option key={a.id} value={a.label}>
+                              {a.label}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="m6 9 6 6 6-6" />
+                          </svg>
+                        </div>
+                      </>
+                    ) : formData.type === "lending" &&
+                      lendingRecords.length > 0 ? (
+                      <>
+                        <select
+                          required
+                          value={formData.category}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              category: e.target.value,
+                            })
+                          }
+                          className={`w-full px-4 py-3.5 rounded-2xl outline-none font-outfit font-semibold transition-all appearance-none cursor-pointer ${darkMode ? "bg-slate-900/50 border border-white/5 text-white focus:border-amber-500 focus:bg-slate-900" : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-amber-400 focus:bg-white"}`}
+                        >
+                          <option value="">Select borrower...</option>
+                          {lendingRecords.map((r) => (
+                            <option key={r.id} value={r.borrower}>
+                              {r.borrower} — {formatINR(r.outstanding)}{" "}
+                              outstanding
+                            </option>
+                          ))}
+                        </select>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="m6 9 6 6 6-6" />
+                          </svg>
+                        </div>
+                      </>
+                    ) : (
+                      <input
+                        type="text"
+                        required
+                        value={formData.category}
+                        onChange={(e) =>
+                          setFormData({ ...formData, category: e.target.value })
+                        }
+                        className={`w-full px-4 py-3.5 rounded-2xl outline-none font-outfit font-semibold transition-all ${darkMode ? "bg-slate-900/50 border border-white/5 text-white focus:border-indigo-500 focus:bg-slate-900" : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-indigo-400 focus:bg-white"}`}
+                        placeholder="e.g. Groceries, Rent..."
+                      />
+                    )}
+                  </div>
                 </div>
 
                 {formData.type === "expense" && (
                   <div>
                     <label
-                      className={`block text-xs font-bold mb-1.5 ${darkMode ? "text-slate-400" : "text-slate-600"}`}
+                      className={`block text-[11px] font-black uppercase tracking-wider mb-2 ${darkMode ? "text-slate-500" : "text-slate-400"}`}
                     >
                       Payment Method
                     </label>
-                    <select
-                      value={formData.paymentMethod}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          paymentMethod: e.target.value,
-                        })
-                      }
-                      className={`w-full px-4 py-3 rounded-xl outline-none font-outfit transition-all appearance-none cursor-pointer ${darkMode ? "bg-slate-900/50 border border-white/10 text-white focus:border-indigo-500" : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-indigo-400"}`}
-                    >
-                      <option value="bank_transfer">Bank Account / UPI</option>
-                      <option value="cash">Cash</option>
-                      {creditCards.map((card) => (
-                        <option key={card.id} value={card.id}>
-                          {card.name} (Credit)
+                    <div className="relative">
+                      <select
+                        value={formData.paymentMethod}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            paymentMethod: e.target.value,
+                          })
+                        }
+                        className={`w-full px-4 py-3.5 rounded-2xl outline-none font-outfit font-semibold transition-all appearance-none cursor-pointer ${darkMode ? "bg-slate-900/50 border border-white/5 text-white focus:border-indigo-500 focus:bg-slate-900" : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-indigo-400 focus:bg-white"}`}
+                      >
+                        <option value="bank_transfer">
+                          Bank Account / UPI
                         </option>
-                      ))}
-                    </select>
+                        <option value="cash">Cash</option>
+                        {creditCards.map((card) => (
+                          <option key={card.id} value={card.id}>
+                            {card.name} (Credit)
+                          </option>
+                        ))}
+                      </select>
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="m6 9 6 6 6-6" />
+                        </svg>
+                      </div>
+                    </div>
                   </div>
                 )}
 
-                <div>
-                  <label
-                    className={`block text-xs font-bold mb-1.5 ${darkMode ? "text-slate-400" : "text-slate-600"}`}
-                  >
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={formData.date}
-                    onChange={(e) =>
-                      setFormData({ ...formData, date: e.target.value })
-                    }
-                    className={`w-full px-4 py-3 rounded-xl outline-none font-outfit transition-all ${darkMode ? "bg-slate-900/50 border border-white/10 text-white focus:border-indigo-500 hover:cursor-pointer" : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-indigo-400 hover:cursor-pointer"}`}
-                    style={{ colorScheme: darkMode ? "dark" : "light" }}
-                  />
-                </div>
-
                 {formData.type === "lending" && (
-                  <div className="md:col-span-2">
+                  <div>
                     <label
-                      className={`block text-xs font-bold mb-1.5 ${darkMode ? "text-slate-400" : "text-slate-600"}`}
+                      className={`block text-[11px] font-black uppercase tracking-wider mb-2 ${darkMode ? "text-slate-500" : "text-slate-400"}`}
                     >
                       Note (Updates Lending Tracker)
                     </label>
@@ -2131,7 +2403,7 @@ export default function MoneyTrackerPage({ darkMode }) {
                       onChange={(e) =>
                         setFormData({ ...formData, note: e.target.value })
                       }
-                      className={`w-full px-4 py-3 rounded-xl outline-none font-outfit transition-all ${darkMode ? "bg-slate-900/50 border border-white/10 text-white focus:border-amber-500" : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-amber-400"}`}
+                      className={`w-full px-4 py-3.5 rounded-2xl outline-none font-outfit font-semibold transition-all ${darkMode ? "bg-slate-900/50 border border-white/5 text-white focus:border-amber-500 focus:bg-slate-900" : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-amber-400 focus:bg-white"}`}
                       placeholder="e.g. Added more for rent..."
                     />
                   </div>
@@ -2139,17 +2411,17 @@ export default function MoneyTrackerPage({ darkMode }) {
               </div>
 
               {/* Actions */}
-              <div className="flex gap-3 mt-4">
+              <div className="flex gap-4 mt-6">
                 <button
                   type="button"
                   onClick={() => setAddModalOpen(false)}
-                  className={`flex-1 py-3 rounded-xl font-bold font-inter transition-all ${darkMode ? "bg-white/5 text-slate-300 hover:bg-white/10" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                  className={`flex-1 py-4 rounded-2xl font-black font-inter tracking-wide transition-all ${darkMode ? "bg-white/5 text-slate-300 hover:bg-white/10" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-3 rounded-xl font-bold font-inter text-white bg-indigo-500 hover:bg-indigo-400 shadow-md shadow-indigo-500/25 transition-all"
+                  className="flex-[2] py-4 rounded-2xl font-black font-inter tracking-wide text-white bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 shadow-xl shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all active:scale-[0.98]"
                 >
                   Save Entry
                 </button>
@@ -2625,156 +2897,224 @@ export default function MoneyTrackerPage({ darkMode }) {
             onClick={() => setEditTransactionData(null)}
           />
           <div
-            className={`relative w-full max-w-md rounded-3xl shadow-2xl overflow-hidden ${darkMode ? "bg-[#181824] border border-white/10" : "bg-white"}`}
+            className={`relative w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden ${darkMode ? "bg-[#12121a] border border-white/10 shadow-black/50" : "bg-white shadow-indigo-500/10"}`}
           >
+            {/* Header Area */}
             <div
-              className={`p-6 border-b ${darkMode ? "border-white/10" : "border-slate-100"}`}
+              className={`px-8 pt-8 pb-6 ${darkMode ? "bg-white/[0.02]" : "bg-slate-50/50"}`}
             >
-              <h2
-                className={`text-xl font-extrabold font-inter flex items-center gap-2 ${darkMode ? "text-white" : "text-slate-900"}`}
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`p-2.5 rounded-xl ${darkMode ? "bg-indigo-500/20 text-indigo-400" : "bg-indigo-100 text-indigo-600"}`}
+                  >
+                    <Edit2 size={24} strokeWidth={2.5} />
+                  </div>
+                  <h2
+                    className={`text-2xl font-black font-inter tracking-tight ${darkMode ? "text-white" : "text-slate-900"}`}
+                  >
+                    Edit Entry
+                  </h2>
+                </div>
+                <button
+                  onClick={() => setEditTransactionData(null)}
+                  className={`p-2 rounded-full transition-all ${darkMode ? "hover:bg-white/10 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-400 hover:text-slate-700"}`}
+                >
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M18 6 6 18" />
+                    <path d="m6 6 12 12" />
+                  </svg>
+                </button>
+              </div>
+              <p
+                className={`text-sm font-outfit ${darkMode ? "text-slate-400" : "text-slate-500"}`}
               >
-                <Edit2 size={20} className="text-indigo-500" />
-                Edit Transaction
-              </h2>
+                Modify the details of your transaction.
+              </p>
             </div>
 
             <form
               onSubmit={handleEditTransaction}
-              className="p-6 flex flex-col gap-6"
+              className="flex flex-col gap-6 p-8 pt-2"
             >
-              <div
-                className={`flex p-1 rounded-xl ${darkMode ? "bg-slate-900 border border-white/10" : "bg-slate-100"}`}
-              >
-                {["income", "expense", "investment", "lending", "loan"].map(
-                  (type) => (
+              <div className="flex flex-col gap-2">
+                <div
+                  className={`flex p-1 rounded-2xl w-full ${darkMode ? "bg-slate-800/80 shadow-inner" : "bg-slate-100/80 shadow-inner"}`}
+                >
+                  {["income", "expense", "investment"].map((type) => (
                     <button
                       key={type}
                       type="button"
                       onClick={() =>
                         setEditTransactionData({ ...editTransactionData, type })
                       }
-                      className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${
-                        editTransactionData.type === type
-                          ? type === "income"
-                            ? "bg-emerald-500 text-white shadow-md"
-                            : type === "expense"
-                              ? "bg-rose-500 text-white shadow-md"
-                              : type === "investment"
-                                ? "bg-indigo-500 text-white shadow-md"
-                                : type === "lending"
-                                  ? "bg-amber-500 text-white shadow-md"
-                                  : "bg-purple-500 text-white shadow-md"
-                          : darkMode
-                            ? "text-slate-400 hover:text-slate-300"
-                            : "text-slate-500 hover:text-slate-700"
-                      }`}
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold capitalize transition-all duration-300 ${editTransactionData.type === type ? (darkMode ? "bg-slate-700 text-white shadow-md scale-[1.02]" : "bg-white text-slate-800 shadow-md scale-[1.02]") : darkMode ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-700"}`}
                     >
                       {type}
                     </button>
-                  ),
+                  ))}
+                </div>
+                <div
+                  className={`flex p-1 rounded-2xl w-full max-w-[66%] mx-auto ${darkMode ? "bg-slate-800/80 shadow-inner" : "bg-slate-100/80 shadow-inner"}`}
+                >
+                  {["lending", "loan"].map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() =>
+                        setEditTransactionData({ ...editTransactionData, type })
+                      }
+                      className={`flex-1 py-2 rounded-xl text-[13px] font-bold capitalize transition-all duration-300 ${editTransactionData.type === type ? (darkMode ? "bg-slate-700 text-white shadow-md scale-[1.02]" : "bg-white text-slate-800 shadow-md scale-[1.02]") : darkMode ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-700"}`}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Input Fields */}
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-5">
+                  <div className="col-span-2 sm:col-span-1">
+                    <label
+                      className={`block text-[11px] font-black uppercase tracking-wider mb-2 ${darkMode ? "text-slate-500" : "text-slate-400"}`}
+                    >
+                      Amount
+                    </label>
+                    <div className="relative">
+                      <div
+                        className={`absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold ${darkMode ? "text-indigo-400" : "text-indigo-600"}`}
+                      >
+                        ₹
+                      </div>
+                      <input
+                        type="number"
+                        required
+                        value={editTransactionData.amount}
+                        onChange={(e) =>
+                          setEditTransactionData({
+                            ...editTransactionData,
+                            amount: e.target.value,
+                          })
+                        }
+                        className={`w-full pl-9 pr-4 py-3.5 rounded-2xl outline-none font-inter font-black text-lg transition-all ${darkMode ? "bg-slate-900/50 border border-white/5 text-white focus:border-indigo-500 focus:bg-slate-900" : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-indigo-400 focus:bg-white"}`}
+                      />
+                    </div>
+                  </div>
+                  <div className="col-span-2 sm:col-span-1">
+                    <label
+                      className={`block text-[11px] font-black uppercase tracking-wider mb-2 ${darkMode ? "text-slate-500" : "text-slate-400"}`}
+                    >
+                      Date
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={editTransactionData.date}
+                      onChange={(e) =>
+                        setEditTransactionData({
+                          ...editTransactionData,
+                          date: e.target.value,
+                        })
+                      }
+                      className={`w-full px-4 py-3.5 rounded-2xl outline-none font-outfit font-bold transition-all ${darkMode ? "bg-slate-900/50 border border-white/5 text-white focus:border-indigo-500 focus:bg-slate-900 hover:cursor-pointer" : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-indigo-400 focus:bg-white hover:cursor-pointer"}`}
+                      style={{ colorScheme: darkMode ? "dark" : "light" }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    className={`block text-[11px] font-black uppercase tracking-wider mb-2 ${darkMode ? "text-slate-500" : "text-slate-400"}`}
+                  >
+                    Category / Detail
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      required
+                      value={editTransactionData.category}
+                      onChange={(e) =>
+                        setEditTransactionData({
+                          ...editTransactionData,
+                          category: e.target.value,
+                        })
+                      }
+                      className={`w-full px-4 py-3.5 rounded-2xl outline-none font-outfit font-semibold transition-all ${darkMode ? "bg-slate-900/50 border border-white/5 text-white focus:border-indigo-500 focus:bg-slate-900" : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-indigo-400 focus:bg-white"}`}
+                    />
+                  </div>
+                </div>
+
+                {editTransactionData.type === "expense" && (
+                  <div>
+                    <label
+                      className={`block text-[11px] font-black uppercase tracking-wider mb-2 ${darkMode ? "text-slate-500" : "text-slate-400"}`}
+                    >
+                      Payment Method
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={
+                          editTransactionData.paymentMethod || "bank_transfer"
+                        }
+                        onChange={(e) =>
+                          setEditTransactionData({
+                            ...editTransactionData,
+                            paymentMethod: e.target.value,
+                          })
+                        }
+                        className={`w-full px-4 py-3.5 rounded-2xl outline-none font-outfit font-semibold transition-all appearance-none cursor-pointer ${darkMode ? "bg-slate-900/50 border border-white/5 text-white focus:border-indigo-500 focus:bg-slate-900" : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-indigo-400 focus:bg-white"}`}
+                      >
+                        <option value="bank_transfer">
+                          Bank Account / UPI
+                        </option>
+                        <option value="cash">Cash</option>
+                        {creditCards.map((card) => (
+                          <option key={card.id} value={card.id}>
+                            {card.name} (Credit)
+                          </option>
+                        ))}
+                      </select>
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="m6 9 6 6 6-6" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label
-                    className={`block text-xs font-bold mb-1.5 ${darkMode ? "text-slate-400" : "text-slate-600"}`}
-                  >
-                    Amount (₹)
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={editTransactionData.amount}
-                    onChange={(e) =>
-                      setEditTransactionData({
-                        ...editTransactionData,
-                        amount: e.target.value,
-                      })
-                    }
-                    className={`w-full px-4 py-3 rounded-xl outline-none font-inter font-semibold transition-all ${darkMode ? "bg-slate-900/50 border border-white/10 text-white focus:border-indigo-500" : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-indigo-400"}`}
-                  />
-                </div>
-                <div>
-                  <label
-                    className={`block text-xs font-bold mb-1.5 ${darkMode ? "text-slate-400" : "text-slate-600"}`}
-                  >
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={editTransactionData.date}
-                    onChange={(e) =>
-                      setEditTransactionData({
-                        ...editTransactionData,
-                        date: e.target.value,
-                      })
-                    }
-                    className={`w-full px-4 py-3 rounded-xl outline-none font-outfit transition-all ${darkMode ? "bg-slate-900/50 border border-white/10 text-white focus:border-indigo-500 [color-scheme:dark]" : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-indigo-400 [color-scheme:light]"}`}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label
-                  className={`block text-xs font-bold mb-1.5 ${darkMode ? "text-slate-400" : "text-slate-600"}`}
-                >
-                  Category / Detail
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editTransactionData.category}
-                  onChange={(e) =>
-                    setEditTransactionData({
-                      ...editTransactionData,
-                      category: e.target.value,
-                    })
-                  }
-                  className={`w-full px-4 py-3 rounded-xl outline-none font-outfit transition-all ${darkMode ? "bg-slate-900/50 border border-white/10 text-white focus:border-indigo-500" : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-indigo-400"}`}
-                />
-              </div>
-
-              {editTransactionData.type === "expense" && (
-                <div>
-                  <label
-                    className={`block text-xs font-bold mb-1.5 ${darkMode ? "text-slate-400" : "text-slate-600"}`}
-                  >
-                    Payment Method
-                  </label>
-                  <select
-                    value={editTransactionData.paymentMethod || "bank_transfer"}
-                    onChange={(e) =>
-                      setEditTransactionData({
-                        ...editTransactionData,
-                        paymentMethod: e.target.value,
-                      })
-                    }
-                    className={`w-full px-4 py-3 rounded-xl outline-none font-outfit transition-all appearance-none cursor-pointer ${darkMode ? "bg-slate-900/50 border border-white/10 text-white focus:border-indigo-500" : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-indigo-400"}`}
-                  >
-                    <option value="bank_transfer">Bank Account / UPI</option>
-                    <option value="cash">Cash</option>
-                    {creditCards.map((card) => (
-                      <option key={card.id} value={card.id}>
-                        {card.name} (Credit)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div className="flex gap-3 mt-2">
+              {/* Actions */}
+              <div className="flex gap-4 mt-6">
                 <button
                   type="button"
                   onClick={() => setEditTransactionData(null)}
-                  className={`flex-1 py-3.5 rounded-xl font-bold font-inter transition-all ${darkMode ? "bg-white/5 text-slate-300 hover:bg-white/10" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                  className={`flex-1 py-4 rounded-2xl font-black font-inter tracking-wide transition-all ${darkMode ? "bg-white/5 text-slate-300 hover:bg-white/10" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-3.5 rounded-xl font-bold font-inter text-white bg-indigo-500 hover:bg-indigo-400 shadow-lg shadow-indigo-500/25 transition-all"
+                  className="flex-[2] py-4 rounded-2xl font-black font-inter tracking-wide text-white bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 shadow-xl shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all active:scale-[0.98]"
                 >
                   Save Changes
                 </button>

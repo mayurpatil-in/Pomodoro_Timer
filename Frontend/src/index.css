@@ -84,3 +84,64 @@ body.light .glass {
 /* ─── Mode button active glow ────────────────────────── */
 .mode-btn-pomodoro { box-shadow: 0 0 20px rgba(59,130,246,0.45); }
 .mode-btn-break    { box-shadow: 0 0 20px rgba(168,85,247,0.45); }
+
+/* ─── Scrollbars ─────────────────────────────────────── */
+/* Global scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-dark-bg);
+}
+::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+body.light ::-webkit-scrollbar-track {
+  background: #f8fafc;
+}
+body.light ::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+}
+body.light ::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+/* Stylish scrollbar utility */
+.stylish-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.stylish-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.stylish-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
+.stylish-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.4);
+}
+
+body.light .stylish-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+}
+body.light .stylish-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.4);
+}
+
+/* Hide scrollbar */
+.scrollbar-hide::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide,
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
@@ -43,10 +44,79 @@ def get_calendar_summary():
     """Return list of dates that have saved routines (for calendar highlighting)."""
     user_id = get_jwt_identity()
     routines = DailyRoutine.query.filter_by(user_id=user_id).all()
-    return jsonify([
-        {'date': r.date, 'count': len(json.loads(r.entries))}
-        for r in routines
-    ]), 200
+    
+    result = []
+    for r in routines:
+        entries = json.loads(r.entries) if r.entries else []
+        is_completed = all(e.get('completed', False) for e in entries) if entries else False
+        result.append({
+            'date': r.date, 
+            'count': len(entries),
+            'is_completed': is_completed
+        })
+        
+    return jsonify(result), 200
+
+
+@routines_bp.route('/streak', methods=['GET'])
+@jwt_required()
+def get_streak():
+    """Calculate the current daily routine completion streak."""
+    user_id = get_jwt_identity()
+    
+    # Get all routines for user ordered by date descending
+    routines = DailyRoutine.query.filter_by(user_id=user_id).order_by(DailyRoutine.date.desc()).all()
+    
+    if not routines:
+        return jsonify({'current_streak': 0, 'today_completed': False}), 200
+
+    now = datetime.now()
+    today_str = now.strftime('%Y-%m-%d')
+    yesterday_str = (now - timedelta(days=1)).strftime('%Y-%m-%d')
+    
+    streak = 0
+    today_completed = False
+    
+    # Check today first
+    today_routine = next((r for r in routines if r.date == today_str), None)
+    if today_routine:
+        entries = json.loads(today_routine.entries) if today_routine.entries else []
+        if entries and all(e.get('completed', False) for e in entries):
+            streak += 1
+            today_completed = True
+    
+    # If not completed today, check if streak is still alive from yesterday
+    last_date = datetime.strptime(today_str, '%Y-%m-%d')
+    if not today_completed:
+        last_date = datetime.strptime(yesterday_str, '%Y-%m-%d')
+        # We start checking from yesterday. If yesterday isn't completed, streak is 0.
+        
+    # Check consecutive days backwards
+    check_date = datetime.strptime(yesterday_str, '%Y-%m-%d')
+    
+    # Filter routines from before today
+    historical = [r for r in routines if r.date < today_str]
+    
+    for r in historical:
+        r_date = datetime.strptime(r.date, '%Y-%m-%d')
+        # Skip if it's not the next day we expect in the streak
+        if r_date > check_date:
+            continue
+        # Break if there's a gap
+        if r_date < check_date:
+            break
+            
+        entries = json.loads(r.entries) if r.entries else []
+        if entries and all(e.get('completed', False) for e in entries):
+            streak += 1
+            check_date -= timedelta(days=1)
+        else:
+            break
+            
+    return jsonify({
+        'current_streak': streak,
+        'today_completed': today_completed
+    }), 200
 
 # ── Templates ──
 

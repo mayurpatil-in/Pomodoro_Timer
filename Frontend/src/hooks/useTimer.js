@@ -65,7 +65,21 @@ export default function useTimer() {
     setTimeLeft(getInitialTime(mode));
   }, [mode, getInitialTime]);
 
+  // Instantly end current session/break
+  const skipTimer = () => {
+    setTimeLeft(0);
+    setIsActive(true); // force trigger the use-effect 0-time block next cycle
+  };
+
+  // Add a specific amount of seconds (e.g., +5 mins = 300)
+  const addTime = (seconds) => {
+    setTimeLeft((prev) => prev + seconds);
+  };
+
+  const [isMuted, setIsMuted] = useState(false);
+
   const playSound = () => {
+    if (isMuted) return;
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (AudioContext) {
@@ -152,5 +166,9 @@ export default function useTimer() {
     setSelectedProjectId: setTimerProject,
     selectedTaskId: timerTask,
     setSelectedTaskId: setTimerTask,
+    skipTimer,
+    addTime,
+    isMuted,
+    setIsMuted,
   };
 }

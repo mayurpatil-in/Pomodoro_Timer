@@ -14,6 +14,7 @@ import TrackReportPage from "./pages/TrackReportPage";
 import GymTrackerPage from "./pages/GymTrackerPage";
 import ProjectTrackerPage from "./pages/ProjectTrackerPage";
 import InterviewTrackerPage from "./pages/InterviewTrackerPage";
+import CalendarPage from "./pages/CalendarPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardLayout from "./components/DashboardLayout";
 import { useAuth } from "./context/AuthContext";
@@ -57,6 +58,10 @@ function App() {
           }
         >
           <Route path="/" element={<Dashboard darkMode={darkMode} />} />
+          <Route
+            path="/calendar"
+            element={<CalendarPage darkMode={darkMode} />}
+          />
           <Route path="/timer" element={<TimerPage darkMode={darkMode} />} />
           <Route
             path="/settings"

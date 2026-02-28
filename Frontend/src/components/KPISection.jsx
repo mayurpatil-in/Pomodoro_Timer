@@ -1,7 +1,16 @@
 import React from "react";
-import { Briefcase, CalendarCheck, Award, XCircle } from "lucide-react";
+import {
+  Briefcase,
+  CalendarCheck,
+  Award,
+  XCircle,
+  TrendingUp,
+} from "lucide-react";
 
 export default function KPISection({ kpis, darkMode }) {
+  const offerRate =
+    kpis.total > 0 ? Math.round(((kpis.offers || 0) / kpis.total) * 100) : 0;
+
   const kpiData = [
     {
       title: "Total Applications",
@@ -43,10 +52,26 @@ export default function KPISection({ kpis, darkMode }) {
       bg: "bg-rose-500/10 text-rose-500",
       borderLine: "border-rose-500/30",
     },
+    {
+      title: "Offer Rate",
+      value: `${offerRate}%`,
+      icon: TrendingUp,
+      from: "from-violet-500",
+      to: "to-purple-600",
+      glow: "shadow-violet-500/20",
+      bg: "bg-violet-500/10 text-violet-500",
+      borderLine: "border-violet-500/30",
+      sub:
+        offerRate >= 20
+          ? "🔥 Strong!"
+          : offerRate >= 10
+            ? "✨ Good"
+            : "Keep going",
+    },
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
       {kpiData.map((kpi, index) => (
         <div
           key={index}
@@ -56,10 +81,10 @@ export default function KPISection({ kpis, darkMode }) {
               : `bg-white border-slate-200 shadow-sm hover:border-slate-300 hover:shadow-md hover:${kpi.glow}`
           }`}
         >
-          {/* Subtle background glow effect on hover via CSS gradient mapping */}
+          {/* Subtle background glow */}
           <div
             className={`absolute -right-8 -top-8 w-24 h-24 rounded-full bg-gradient-to-br ${kpi.from} ${kpi.to} opacity-10 blur-2xl pointer-events-none`}
-          ></div>
+          />
 
           <div className="flex justify-between items-start mb-4">
             <div
@@ -67,13 +92,20 @@ export default function KPISection({ kpis, darkMode }) {
             >
               <kpi.icon size={18} className="text-white" />
             </div>
-            {/* Small growth indicator - placeholder for now since there's no historical data, normally we'd compare this month vs last month */}
-            <div
-              className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${darkMode ? "bg-white/5 text-slate-400" : "bg-slate-50 text-slate-500"}`}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              Tracking
-            </div>
+            {kpi.sub ? (
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${darkMode ? "bg-white/5 text-slate-400" : "bg-slate-50 text-slate-500"}`}
+              >
+                {kpi.sub}
+              </span>
+            ) : (
+              <div
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${darkMode ? "bg-white/5 text-slate-400" : "bg-slate-50 text-slate-500"}`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Live
+              </div>
+            )}
           </div>
 
           <div

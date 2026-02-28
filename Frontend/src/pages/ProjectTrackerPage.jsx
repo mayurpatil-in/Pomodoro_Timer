@@ -38,7 +38,8 @@ import {
   DragOverlay,
   closestCorners,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   defaultDropAnimationSideEffects,
@@ -177,7 +178,10 @@ export default function ProjectTrackerPage({ darkMode }) {
   };
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 5 },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
@@ -2080,7 +2084,7 @@ function ProjectCard({
               <span
                 {...dragListeners}
                 onClick={(e) => e.stopPropagation()}
-                className={`p-1.5 rounded-lg cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-all touch-none ${
+                className={`p-1.5 rounded-lg cursor-grab active:cursor-grabbing opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all touch-none ${
                   darkMode
                     ? "text-slate-600 hover:text-slate-400 hover:bg-white/5"
                     : "text-slate-300 hover:text-slate-500 hover:bg-slate-100"
@@ -2091,7 +2095,7 @@ function ProjectCard({
               <button
                 onClick={() => onStartFocus?.(project.id)}
                 title="Start Focus Session"
-                className={`p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all ${
+                className={`p-1.5 rounded-lg opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all ${
                   darkMode
                     ? "text-indigo-400 hover:bg-indigo-400/10"
                     : "text-indigo-500 hover:bg-indigo-50"
@@ -2101,7 +2105,7 @@ function ProjectCard({
               </button>
               <button
                 onClick={() => onDelete(project.id)}
-                className={`p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all ${
+                className={`p-1.5 rounded-lg opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all ${
                   darkMode
                     ? "text-slate-600 hover:text-rose-400 hover:bg-rose-400/10"
                     : "text-slate-300 hover:text-rose-500 hover:bg-rose-50"

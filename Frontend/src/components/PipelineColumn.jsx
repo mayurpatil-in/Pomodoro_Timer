@@ -10,6 +10,7 @@ export default function PipelineColumn({
   onAddClick,
   onCardClick,
   onDeleteClick,
+  onQuestionsClick,
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
@@ -19,7 +20,7 @@ export default function PipelineColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`flex flex-col h-full min-w-[300px] w-full max-w-[350px] rounded-2xl border transition-colors duration-200 ${
+      className={`flex flex-col h-full w-full rounded-2xl border transition-colors duration-200 ${
         darkMode
           ? `bg-[#13131a]/80 backdrop-blur-xl border-white/5 ${isOver ? "border-indigo-500/50 bg-[#1a1a24]/90" : ""}`
           : `bg-slate-50/80 border-slate-200 ${isOver ? "border-indigo-400 bg-indigo-50/50" : ""}`
@@ -79,6 +80,7 @@ export default function PipelineColumn({
             darkMode={darkMode}
             onClick={onCardClick}
             onDelete={onDeleteClick}
+            onQuestionsClick={onQuestionsClick}
           />
         ))}
         {applications.length === 0 && (

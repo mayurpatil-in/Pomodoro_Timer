@@ -5,7 +5,8 @@ import {
   DragOverlay,
   closestCorners,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   defaultDropAnimationSideEffects,
@@ -17,6 +18,7 @@ import ApplicationCard from "../components/ApplicationCard";
 import KPISection from "../components/KPISection";
 import AddApplicationModal from "../components/AddApplicationModal";
 import CustomConfirmModal from "../components/CustomConfirmModal";
+import InterviewQuestionsModal from "../components/InterviewQuestionsModal";
 import confetti from "canvas-confetti";
 
 const COLUMNS = [
@@ -41,8 +43,14 @@ export default function InterviewTrackerPage({ darkMode }) {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [appToDelete, setAppToDelete] = useState(null);
 
+  const [isQuestionsModalOpen, setIsQuestionsModalOpen] = useState(false);
+  const [appForQuestions, setAppForQuestions] = useState(null);
+
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 5 },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
@@ -190,6 +198,32 @@ export default function InterviewTrackerPage({ darkMode }) {
     }
   };
 
+  const handleOpenQuestions = (application) => {
+    setAppForQuestions(application);
+    setIsQuestionsModalOpen(true);
+  };
+
+  const handleSaveQuestions = async (appId, newQuestions) => {
+    try {
+      await api.put(`/interviews/${appId}`, { questions: newQuestions });
+
+      // Optimistically update the local state so the badge reflects exactly what we have
+      setApplications((prev) =>
+        prev.map((app) =>
+          app.id === appId ? { ...app, questions: newQuestions } : app,
+        ),
+      );
+
+      // Update the currently viewed app so the modal stays in sync
+      if (appForQuestions && appForQuestions.id === appId) {
+        setAppForQuestions((prev) => ({ ...prev, questions: newQuestions }));
+      }
+    } catch (error) {
+      console.error("Error saving questions:", error);
+      fetchApplications(); // Revert on error
+    }
+  };
+
   const filteredApplications = applications.filter((app) => {
     const match = searchQuery.toLowerCase();
     return (
@@ -257,6 +291,92 @@ export default function InterviewTrackerPage({ darkMode }) {
       {/* ─── KPI Cards ─── */}
       <KPISection kpis={kpis} darkMode={darkMode} />
 
+      {/* ─── Upcoming Interviews Panel ─── */}
+      {(() => {
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        const soon = new Date(now);
+        soon.setDate(soon.getDate() + 7);
+        const upcoming = applications
+          .filter((app) => {
+            if (!app.interview_date) return false;
+            const d = new Date(app.interview_date);
+            d.setHours(0, 0, 0, 0);
+            return d >= now && d <= soon;
+          })
+          .sort(
+            (a, b) => new Date(a.interview_date) - new Date(b.interview_date),
+          );
+        if (upcoming.length === 0) return null;
+        return (
+          <div
+            className={`rounded-2xl border p-4 mb-8 ${
+              darkMode
+                ? "bg-amber-500/5 border-amber-500/20"
+                : "bg-amber-50 border-amber-200"
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-base">📅</span>
+              <h3
+                className={`text-sm font-black ${darkMode ? "text-amber-400" : "text-amber-700"}`}
+              >
+                Upcoming Interviews
+              </h3>
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  darkMode
+                    ? "bg-amber-500/15 text-amber-400"
+                    : "bg-amber-200 text-amber-700"
+                }`}
+              >
+                Next 7 days · {upcoming.length}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {upcoming.map((app) => {
+                const d = new Date(app.interview_date);
+                d.setHours(0, 0, 0, 0);
+                const diffDays = Math.round((d - now) / (1000 * 60 * 60 * 24));
+                return (
+                  <button
+                    key={app.id}
+                    onClick={() => handleCardClick(app)}
+                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border text-left transition-all hover:scale-[1.02] ${
+                      darkMode
+                        ? "bg-[#18181b] border-white/10 hover:border-amber-500/30"
+                        : "bg-white border-amber-200 shadow-sm hover:border-amber-400"
+                    }`}
+                  >
+                    <div
+                      className={`text-center min-w-[32px] rounded-lg px-1.5 py-1 text-xs font-black ${
+                        diffDays === 0
+                          ? "bg-amber-500/20 text-amber-500"
+                          : "bg-blue-500/15 text-blue-500"
+                      }`}
+                    >
+                      {diffDays === 0 ? "Today" : `+${diffDays}d`}
+                    </div>
+                    <div>
+                      <p
+                        className={`text-xs font-bold leading-tight ${darkMode ? "text-white" : "text-slate-800"}`}
+                      >
+                        {app.role}
+                      </p>
+                      <p
+                        className={`text-[10px] ${darkMode ? "text-slate-500" : "text-slate-400"}`}
+                      >
+                        {app.company_name}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ─── Kanban Board Pipeline ─── */}
       {loading ? (
         <div className="flex flex-col items-center justify-center py-32">
@@ -277,22 +397,22 @@ export default function InterviewTrackerPage({ darkMode }) {
             onDragEnd={handleDragEnd}
           >
             <div
-              className="flex gap-5 overflow-x-auto pb-6 snap-x snap-mandatory hide-scrollbar"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5 items-start pb-6"
               style={{ minHeight: "calc(100vh - 350px)" }}
             >
               {COLUMNS.map((column) => (
-                <div key={column.id} className="snap-start shrink-0">
-                  <PipelineColumn
-                    column={column}
-                    applications={filteredApplications.filter(
-                      (app) => app.stage === column.id,
-                    )}
-                    darkMode={darkMode}
-                    onAddClick={openAddModal}
-                    onCardClick={handleCardClick}
-                    onDeleteClick={handleDeleteApplication}
-                  />
-                </div>
+                <PipelineColumn
+                  key={column.id}
+                  column={column}
+                  applications={filteredApplications.filter(
+                    (app) => app.stage === column.id,
+                  )}
+                  darkMode={darkMode}
+                  onAddClick={openAddModal}
+                  onCardClick={handleCardClick}
+                  onDeleteClick={handleDeleteApplication}
+                  onQuestionsClick={handleOpenQuestions}
+                />
               ))}
             </div>
 
@@ -343,6 +463,18 @@ export default function InterviewTrackerPage({ darkMode }) {
         confirmText="Delete"
         cancelText="Cancel"
         type="delete"
+        darkMode={darkMode}
+      />
+
+      {/* Interview Questions Modal */}
+      <InterviewQuestionsModal
+        isOpen={isQuestionsModalOpen}
+        onClose={() => {
+          setIsQuestionsModalOpen(false);
+          setAppForQuestions(null);
+        }}
+        application={appForQuestions}
+        onSaveQuestions={handleSaveQuestions}
         darkMode={darkMode}
       />
     </div>

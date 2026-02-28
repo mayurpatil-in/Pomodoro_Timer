@@ -4,7 +4,7 @@ import axios from "axios";
 const AuthContext = createContext();
 
 const api = axios.create({
-  baseURL: "http://127.0.0.1:5000/api",
+  baseURL: `http://${window.location.hostname}:5000/api`,
 });
 
 // Add a request interceptor to attach the JWT token

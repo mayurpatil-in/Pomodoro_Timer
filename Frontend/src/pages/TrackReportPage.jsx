@@ -424,11 +424,11 @@ export default function TrackReportPage({ darkMode }) {
   const gridCols =
     {
       1: "grid-cols-1",
-      2: "grid-cols-2",
-      3: "grid-cols-3",
-      4: "grid-cols-2 lg:grid-cols-4",
-      5: "grid-cols-2 lg:grid-cols-5",
-    }[activeStats.length] ?? "grid-cols-3";
+      2: "grid-cols-1 sm:grid-cols-2",
+      3: "grid-cols-1 sm:grid-cols-3",
+      4: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4",
+      5: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-5",
+    }[activeStats.length] ?? "grid-cols-1 sm:grid-cols-3";
 
   if (loading) {
     return (
@@ -444,9 +444,7 @@ export default function TrackReportPage({ darkMode }) {
   }
 
   return (
-    <div
-      className={`flex flex-col gap-6 p-4 md:p-6 w-full ${darkMode ? "bg-slate-950 text-white" : "bg-slate-50 text-slate-900"}`}
-    >
+    <div className="flex flex-col gap-6 w-full min-h-full pb-8">
       {/* ── Page Header ──────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -535,7 +533,7 @@ export default function TrackReportPage({ darkMode }) {
       >
         {/* Table Toolbar */}
         <div
-          className={`px-5 py-4 border-b flex items-center justify-between gap-4
+          className={`px-5 py-4 border-b flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between
           ${darkMode ? "border-white/6" : "border-slate-100"}`}
         >
           <div className="flex items-center gap-3">
@@ -564,7 +562,7 @@ export default function TrackReportPage({ darkMode }) {
           </div>
 
           {/* Search */}
-          <div className="relative">
+          <div className="relative w-full sm:w-auto">
             <Search
               size={14}
               className={`absolute left-3 top-1/2 -translate-y-1/2 ${darkMode ? "text-slate-500" : "text-slate-400"}`}
@@ -574,7 +572,7 @@ export default function TrackReportPage({ darkMode }) {
               placeholder="Search…"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className={`pl-9 pr-4 py-2 rounded-xl text-sm font-outfit border outline-none focus:ring-2 focus:ring-indigo-500/50 transition w-56
+              className={`pl-9 pr-4 py-2 rounded-xl text-sm font-outfit border outline-none focus:ring-2 focus:ring-indigo-500/50 transition w-full sm:w-56
                 ${
                   darkMode
                     ? "bg-slate-800 border-white/8 text-white placeholder-slate-500 focus:border-indigo-500"

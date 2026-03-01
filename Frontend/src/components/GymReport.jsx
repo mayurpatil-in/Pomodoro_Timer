@@ -167,11 +167,17 @@ export default function GymReport({ darkMode }) {
                         <span
                           className={`text-sm font-bold font-inter ${darkMode ? "text-slate-200" : "text-slate-700"}`}
                         >
-                          {new Date(item.date).toLocaleDateString(undefined, {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
+                          {(() => {
+                            const [y, m, d] = item.date.split("-");
+                            return new Date(y, m - 1, d).toLocaleDateString(
+                              undefined,
+                              {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              },
+                            );
+                          })()}
                         </span>
                       </div>
                     </td>

@@ -16,9 +16,16 @@ import {
   X,
   BarChart3,
   ClipboardList,
+  Clock,
+  History,
+  Camera,
+  CheckCircle2,
+  Info,
+  ChevronDown,
 } from "lucide-react";
 import GymAnalytics from "../components/GymAnalytics";
 import GymReport from "../components/GymReport";
+import CustomConfirmModal from "../components/CustomConfirmModal";
 
 export default function GymTrackerPage({ darkMode }) {
   const { api, user } = useAuth();
@@ -68,7 +75,52 @@ export default function GymTrackerPage({ darkMode }) {
   const [isGoalModalOpen, setGoalModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("daily");
 
-  const formattedDate = currentDate.toISOString().split("T")[0];
+  // Advanced states
+  const [templates, setTemplates] = useState([]);
+  const [prs, setPrs] = useState([]);
+  const [measurements, setMeasurements] = useState([]);
+  const [photos, setPhotos] = useState([]);
+  const [isTemplateModalOpen, setTemplateModalOpen] = useState(false);
+  const [isMeasurementModalOpen, setMeasurementModalOpen] = useState(false);
+  const [isPRModalOpen, setPRModalOpen] = useState(false);
+  const [isPhotoModalOpen, setPhotoModalOpen] = useState(false);
+  const [isSaveTemplateNameModalOpen, setSaveTemplateNameModalOpen] =
+    useState(false);
+
+  // Rest Timer State
+  const [restTime, setRestTime] = useState(60);
+  const [timerActive, setTimerActive] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(0);
+
+  const [newMeasurement, setNewMeasurement] = useState({
+    weight: "",
+    height: "",
+    body_fat: "",
+    neck: "",
+    chest: "",
+    waist: "",
+    hips: "",
+  });
+  const [newTemplate, setNewTemplate] = useState({
+    name: "",
+    exercises: [],
+  });
+
+  // Custom Confirm Modal State
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+    type: "delete",
+  });
+
+  const formattedDate = (() => {
+    const year = currentDate.getFullYear();
+    const month = String(currentDate.getMonth() + 1).padStart(2, "0");
+    const day = String(currentDate.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  })();
   const displayDate = currentDate.toLocaleString("default", {
     month: "long",
     day: "numeric",
@@ -106,8 +158,56 @@ export default function GymTrackerPage({ darkMode }) {
         .get("/gym/goal")
         .then((res) => setGoals(res.data))
         .catch(console.error);
+      refreshAdvancedData();
     }
   }, [user, api]);
+
+  const refreshAdvancedData = () => {
+    api
+      .get("/gym/templates")
+      .then((res) => setTemplates(res.data))
+      .catch(console.error);
+    api
+      .get("/gym/prs")
+      .then((res) => setPrs(res.data))
+      .catch(console.error);
+    api
+      .get("/gym/measurements")
+      .then((res) => setMeasurements(res.data))
+      .catch(console.error);
+    api
+      .get("/gym/photos")
+      .then((res) => setPhotos(res.data))
+      .catch(console.error);
+  };
+
+  const handleApplyTemplate = (templateId) => {
+    api
+      .post(`/gym/templates/${templateId}/apply`, { date: formattedDate })
+      .then(() => {
+        fetchData();
+        setTemplateModalOpen(false);
+      })
+      .catch(console.error);
+  };
+
+  useEffect(() => {
+    let interval = null;
+    if (timerActive && timeLeft > 0) {
+      interval = setInterval(() => {
+        setTimeLeft((prev) => prev - 1);
+      }, 1000);
+    } else if (timeLeft === 0) {
+      setTimerActive(false);
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [timerActive, timeLeft]);
+
+  const startRestTimer = (seconds = restTime) => {
+    setTimeLeft(seconds);
+    setTimerActive(true);
+  };
 
   const handlePrevDay = () => {
     const prev = new Date(currentDate);
@@ -166,6 +266,106 @@ export default function GymTrackerPage({ darkMode }) {
       .catch(console.error);
   };
 
+  const handleAddTemplate = (e) => {
+    e.preventDefault();
+    if (!newTemplate.name) return;
+    api
+      .post("/gym/templates", newTemplate)
+      .then(() => {
+        refreshAdvancedData();
+        setTemplateModalOpen(false);
+        setSaveTemplateNameModalOpen(false);
+        setNewTemplate({ name: "", exercises: [] });
+      })
+      .catch(console.error);
+  };
+
+  const prepareSaveTemplate = () => {
+    if (exercises.length === 0) {
+      alert("No exercises logged today to save as a template!");
+      return;
+    }
+    // Clean exercises for template (e.g. remove IDs if they were somehow there)
+    const cleanedExercises = exercises.map((ex) => ({
+      name: ex.name,
+      muscle_group: ex.muscle_group,
+      sets: ex.sets,
+      reps: ex.reps,
+      weight: ex.weight,
+    }));
+    setNewTemplate({ ...newTemplate, exercises: cleanedExercises });
+    setSaveTemplateNameModalOpen(true);
+  };
+
+  const handleMeasurementSubmit = (e) => {
+    e.preventDefault();
+    api
+      .post("/gym/measurements", { date: formattedDate, ...newMeasurement })
+      .then(() => {
+        refreshAdvancedData();
+        setMeasurementModalOpen(false);
+      })
+      .catch(console.error);
+  };
+
+  const openMeasurementModal = () => {
+    const existing = measurements.find((m) => m.date === formattedDate);
+    if (existing) {
+      setNewMeasurement({
+        weight: existing.weight?.toString() || "",
+        height: existing.height?.toString() || "",
+        body_fat: existing.body_fat?.toString() || "",
+        neck: existing.neck?.toString() || "",
+        chest: existing.chest?.toString() || "",
+        waist: existing.waist?.toString() || "",
+        hips: existing.hips?.toString() || "",
+      });
+    } else {
+      setNewMeasurement({
+        weight: dayData.weight?.toString() || "",
+        height: "",
+        body_fat: "",
+        neck: "",
+        chest: "",
+        waist: "",
+        hips: "",
+      });
+    }
+    setMeasurementModalOpen(true);
+  };
+
+  const handleAddPhoto = async (e) => {
+    e.preventDefault();
+    const file = e.target.photo_file.files[0];
+    const notes = e.target.notes.value;
+
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      // 1. Upload to server
+      const uploadRes = await api.post("/gym/photos/upload", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      const image_url = uploadRes.data.image_url;
+
+      // 2. Save record
+      await api.post("/gym/photos", {
+        date: formattedDate,
+        image_url,
+        notes,
+      });
+
+      refreshAdvancedData();
+      setPhotoModalOpen(false);
+    } catch (err) {
+      console.error("Photo upload failed:", err);
+    }
+  };
+
   const handleAddExercise = (e) => {
     e.preventDefault();
     if (!newExercise.name) return;
@@ -181,6 +381,10 @@ export default function GymTrackerPage({ darkMode }) {
       .then((res) => {
         setExercises((prev) => [...prev, res.data.exercise]);
         setAddExerciseModalOpen(false);
+        refreshAdvancedData();
+        if (res.data.is_new_pr) {
+          startRestTimer(45); // small celebration timer or just a nudge
+        }
         setNewExercise({
           name: "",
           muscle_group: "Chest",
@@ -193,10 +397,19 @@ export default function GymTrackerPage({ darkMode }) {
   };
 
   const handleDeleteExercise = (id) => {
-    api
-      .delete(`/gym/exercise/${id}`)
-      .then(() => setExercises((prev) => prev.filter((ex) => ex.id !== id)))
-      .catch(console.error);
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete Exercise?",
+      message:
+        "This will remove this exercise entry and its sets from today's log.",
+      type: "delete",
+      onConfirm: () => {
+        api
+          .delete(`/gym/exercise/${id}`)
+          .then(() => setExercises((prev) => prev.filter((ex) => ex.id !== id)))
+          .catch(console.error);
+      },
+    });
   };
 
   const handleAddMeal = (e) => {
@@ -228,10 +441,49 @@ export default function GymTrackerPage({ darkMode }) {
   };
 
   const handleDeleteMeal = (id) => {
-    api
-      .delete(`/gym/meal/${id}`)
-      .then(() => setMeals((prev) => prev.filter((m) => m.id !== id)))
-      .catch(console.error);
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete Meal?",
+      message: "This will remove this meal and its macros from your daily log.",
+      type: "delete",
+      onConfirm: () => {
+        api
+          .delete(`/gym/meal/${id}`)
+          .then(() => setMeals((prev) => prev.filter((m) => m.id !== id)))
+          .catch(console.error);
+      },
+    });
+  };
+
+  const handleDeletePhoto = (id) => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete Photo?",
+      message:
+        "Are you sure you want to remove this progress photo permanently?",
+      type: "delete",
+      onConfirm: () => {
+        api
+          .delete(`/gym/photos/${id}`)
+          .then(() => setPhotos((prev) => prev.filter((p) => p.id !== id)))
+          .catch(console.error);
+      },
+    });
+  };
+
+  const handleDeleteTemplate = (id) => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete Template?",
+      message: "This will permanently remove this workout routine.",
+      type: "delete",
+      onConfirm: () => {
+        api
+          .delete(`/gym/templates/${id}`)
+          .then(() => setTemplates((prev) => prev.filter((t) => t.id !== id)))
+          .catch(console.error);
+      },
+    });
   };
 
   return (
@@ -524,15 +776,24 @@ export default function GymTrackerPage({ darkMode }) {
               <div
                 className={`p-5 rounded-3xl border shadow-sm relative overflow-hidden ${darkMode ? "bg-slate-900 border-white/5" : "bg-white border-slate-200"}`}
               >
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
-                    <Scale size={20} />
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
+                      <Scale size={20} />
+                    </div>
+                    <h3
+                      className={`font-bold font-inter ${darkMode ? "text-white" : "text-slate-800"}`}
+                    >
+                      Body Weight
+                    </h3>
                   </div>
-                  <h3
-                    className={`font-bold font-inter ${darkMode ? "text-white" : "text-slate-800"}`}
+                  <button
+                    onClick={openMeasurementModal}
+                    className={`p-2 rounded-lg transition-all ${darkMode ? "bg-white/5 hover:bg-white/10 text-indigo-400" : "bg-slate-50 hover:bg-slate-100 text-indigo-600"}`}
+                    title="Log full measurements"
                   >
-                    Body Weight
-                  </h3>
+                    <ClipboardList size={18} />
+                  </button>
                 </div>
                 <div className="flex items-center gap-2">
                   <input
@@ -578,12 +839,34 @@ export default function GymTrackerPage({ darkMode }) {
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setAddExerciseModalOpen(true)}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center bg-orange-500 hover:bg-orange-600 text-white shadow-sm shadow-orange-500/20"
-                  >
-                    <Plus size={16} />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setTemplateModalOpen(true)}
+                      className={`p-1.5 rounded-lg border transition-all flex items-center gap-1.5 ${darkMode ? "bg-slate-800 border-white/10 hover:bg-slate-700 text-orange-400" : "bg-slate-50 border-slate-200 hover:bg-slate-100 text-orange-600"}`}
+                    >
+                      <History size={14} />
+                      <span className="text-[10px] font-bold uppercase tracking-wider hidden sm:inline">
+                        Apply Template
+                      </span>
+                    </button>
+                    <button
+                      onClick={() =>
+                        timerActive ? setTimerActive(false) : startRestTimer()
+                      }
+                      className={`p-1.5 rounded-lg border transition-all flex items-center gap-1.5 ${timerActive ? "bg-orange-500 text-white border-orange-400 animate-pulse" : darkMode ? "bg-slate-800 border-white/10 hover:bg-slate-700 text-blue-400" : "bg-slate-50 border-slate-200 hover:bg-slate-100 text-blue-600"}`}
+                    >
+                      <Clock size={14} />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">
+                        {timerActive ? `${timeLeft}s` : "Rest"}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => setAddExerciseModalOpen(true)}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center bg-orange-500 hover:bg-orange-600 text-white shadow-sm shadow-orange-500/20"
+                    >
+                      <Plus size={16} />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-3">
@@ -611,6 +894,19 @@ export default function GymTrackerPage({ darkMode }) {
                                 className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${darkMode ? "bg-orange-500/20 text-orange-400" : "bg-orange-100 text-orange-700"}`}
                               >
                                 {ex.muscle_group}
+                              </span>
+                            )}
+                            {prs.find(
+                              (p) =>
+                                p.exercise_name === ex.name &&
+                                p.max_weight === ex.weight &&
+                                p.achieved_at === formattedDate,
+                            ) && (
+                              <span
+                                className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider bg-yellow-500/20 text-yellow-500 flex items-center gap-1 animate-bounce`}
+                              >
+                                <CheckCircle2 size={10} />
+                                New PR!
                               </span>
                             )}
                           </div>
@@ -730,6 +1026,87 @@ export default function GymTrackerPage({ darkMode }) {
                   )}
                 </div>
               </div>
+            </div>
+
+            {/* ROW 4: Body Progress Photos */}
+            <div
+              className={`p-6 md:p-8 mt-6 rounded-[2.5rem] border shadow-sm ${darkMode ? "bg-slate-900 border-white/5" : "bg-white border-slate-200"}`}
+            >
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
+                    <Camera size={24} />
+                  </div>
+                  <div>
+                    <h3
+                      className={`font-bold font-inter text-xl ${darkMode ? "text-white" : "text-slate-800"}`}
+                    >
+                      Progress Gallery
+                    </h3>
+                    <p
+                      className={`text-sm font-outfit ${darkMode ? "text-slate-400" : "text-slate-500"}`}
+                    >
+                      Visualize your transformation over time
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setPhotoModalOpen(true)}
+                  className="px-5 py-2.5 rounded-xl flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-sm transition-all shadow-lg shadow-indigo-500/25"
+                >
+                  <Plus size={18} />
+                  Add Photo
+                </button>
+              </div>
+
+              {photos.length === 0 ? (
+                <div
+                  className={`py-16 text-center rounded-3xl border-2 border-dashed ${darkMode ? "border-white/5 text-slate-500" : "border-slate-100 text-slate-400"}`}
+                >
+                  <p className="text-sm font-medium">
+                    No progress photos yet. Capture your journey!
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                  {photos.map((photo) => (
+                    <div
+                      key={photo.id}
+                      className="group relative aspect-[3/4] rounded-2xl overflow-hidden shadow-md"
+                    >
+                      <img
+                        src={
+                          photo.image_url.startsWith("http")
+                            ? photo.image_url
+                            : `${api.defaults.baseURL.replace("/api", "")}${photo.image_url}`
+                        }
+                        alt={`Progress ${photo.date}`}
+                        className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
+                        <div className="flex justify-between items-end">
+                          <div>
+                            <p className="text-white text-[10px] font-bold">
+                              {new Date(photo.date).toLocaleDateString()}
+                            </p>
+                            {photo.notes && (
+                              <p className="text-white/70 text-[8px] line-clamp-1 truncate">
+                                {photo.notes}
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handleDeletePhoto(photo.id)}
+                            className="p-1.5 rounded-lg bg-rose-500/20 text-rose-400 hover:bg-rose-500 hover:text-white transition-all"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </>
@@ -1161,6 +1538,329 @@ export default function GymTrackerPage({ darkMode }) {
           </div>
         </div>
       )}
+      {/* Template Modal */}
+      {isTemplateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div
+            className={`w-full max-w-lg rounded-3xl p-6 shadow-2xl border ${darkMode ? "bg-slate-900 border-white/10" : "bg-white border-slate-200"}`}
+          >
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-500 flex items-center justify-center">
+                  <History size={20} />
+                </div>
+                <h2
+                  className={`text-xl font-bold font-inter ${darkMode ? "text-white" : "text-slate-900"}`}
+                >
+                  Workout Templates
+                </h2>
+              </div>
+              <button
+                onClick={() => setTemplateModalOpen(false)}
+                className={`p-2 rounded-lg ${darkMode ? "hover:bg-white/10 text-slate-400" : "hover:bg-slate-100 text-slate-500"}`}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+              {templates.length === 0 ? (
+                <div className="text-center py-8">
+                  <p
+                    className={`text-sm ${darkMode ? "text-slate-500" : "text-slate-400"}`}
+                  >
+                    No templates saved yet.
+                  </p>
+                </div>
+              ) : (
+                templates.map((template) => (
+                  <div
+                    key={template.id}
+                    className={`p-4 rounded-2xl border flex flex-col gap-3 ${darkMode ? "bg-slate-800/50 border-white/5" : "bg-slate-50 border-slate-200"}`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <div className="flex-1">
+                        <h4
+                          className={`font-bold font-inter text-sm ${darkMode ? "text-white" : "text-slate-900"}`}
+                        >
+                          {template.name}
+                        </h4>
+                        <p
+                          className={`text-xs ${darkMode ? "text-slate-500" : "text-slate-400"}`}
+                        >
+                          {template.exercises.length} exercises
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleApplyTemplate(template.id)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${darkMode ? "bg-orange-500/10 text-orange-400 hover:bg-orange-500/20" : "bg-orange-100 text-orange-700 hover:bg-orange-200"}`}
+                        >
+                          Apply
+                        </button>
+                        <button
+                          onClick={() => handleDeleteTemplate(template.id)}
+                          className={`p-2 rounded-lg transition-all ${darkMode ? "text-slate-500 hover:text-rose-400 hover:bg-rose-400/10" : "text-slate-400 hover:text-rose-500 hover:bg-rose-50"}`}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {template.exercises.map((ex, idx) => (
+                        <span
+                          key={idx}
+                          className={`text-[10px] px-2 py-1 rounded-md font-medium ${darkMode ? "bg-slate-700 text-slate-300" : "bg-white text-slate-600"} border ${darkMode ? "border-white/5" : "border-slate-200"}`}
+                        >
+                          {ex.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <button
+              onClick={prepareSaveTemplate}
+              className={`w-full py-4 mt-6 rounded-2xl font-bold border-2 border-dashed transition-all flex items-center justify-center gap-2 ${darkMode ? "border-white/10 text-slate-400 hover:border-orange-500/50 hover:text-orange-400" : "border-slate-200 text-slate-500 hover:border-orange-500/50 hover:text-orange-600"}`}
+            >
+              <Plus size={18} />
+              Save Current as Template
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Save Template Name Modal */}
+      {isSaveTemplateNameModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div
+            className={`w-full max-w-sm rounded-3xl p-6 shadow-2xl border ${darkMode ? "bg-slate-900 border-white/10 text-white" : "bg-white border-slate-200 text-slate-900"}`}
+          >
+            <h3 className="text-lg font-bold mb-4">Save Template As...</h3>
+            <form onSubmit={handleAddTemplate} className="space-y-4">
+              <div>
+                <label
+                  className={`block text-xs font-bold mb-1.5 uppercase ${darkMode ? "text-slate-400" : "text-slate-500"}`}
+                >
+                  Template Name
+                </label>
+                <input
+                  autoFocus
+                  required
+                  type="text"
+                  placeholder="e.g. Monday Push Day"
+                  value={newTemplate.name}
+                  onChange={(e) =>
+                    setNewTemplate({ ...newTemplate, name: e.target.value })
+                  }
+                  className={`w-full px-4 py-2.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-orange-500/50 ${darkMode ? "bg-slate-800/50 border-white/10 text-white" : "bg-white border-slate-200 text-slate-900"}`}
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSaveTemplateNameModalOpen(false)}
+                  className={`flex-1 py-2.5 rounded-xl font-bold ${darkMode ? "bg-white/5 text-slate-400 hover:bg-white/10" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-xl font-bold bg-orange-500 text-white hover:bg-orange-600 shadow-lg shadow-orange-500/25"
+                >
+                  Save
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Measurement Modal */}
+      {isMeasurementModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div
+            className={`w-full max-w-lg rounded-3xl p-6 shadow-2xl border ${darkMode ? "bg-slate-900 border-white/10" : "bg-white border-slate-200"}`}
+          >
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
+                  <Scale size={20} />
+                </div>
+                <h2
+                  className={`text-xl font-bold font-inter ${darkMode ? "text-white" : "text-slate-900"}`}
+                >
+                  Body Measurements
+                </h2>
+              </div>
+              <button
+                onClick={() => setMeasurementModalOpen(false)}
+                className={`p-2 rounded-lg ${darkMode ? "hover:bg-white/10 text-slate-400" : "hover:bg-slate-100 text-slate-500"}`}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleMeasurementSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label
+                    className={`block text-xs font-bold mb-1.5 uppercase ${darkMode ? "text-slate-400" : "text-slate-500"}`}
+                  >
+                    Weight (kg)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={newMeasurement.weight}
+                    onChange={(e) =>
+                      setNewMeasurement({
+                        ...newMeasurement,
+                        weight: e.target.value,
+                      })
+                    }
+                    className={`w-full px-4 py-2.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${darkMode ? "bg-slate-800/50 border-white/10 text-white" : "bg-white border-slate-200 text-slate-900"}`}
+                  />
+                </div>
+                <div>
+                  <label
+                    className={`block text-xs font-bold mb-1.5 uppercase ${darkMode ? "text-slate-400" : "text-slate-500"}`}
+                  >
+                    Height (cm)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={newMeasurement.height}
+                    onChange={(e) =>
+                      setNewMeasurement({
+                        ...newMeasurement,
+                        height: e.target.value,
+                      })
+                    }
+                    className={`w-full px-4 py-2.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${darkMode ? "bg-slate-800/50 border-white/10 text-white" : "bg-white border-slate-200 text-slate-900"}`}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                {["neck", "chest", "waist", "hips", "body_fat"].map((field) => (
+                  <div key={field}>
+                    <label
+                      className={`block text-[10px] font-bold mb-1.5 uppercase ${darkMode ? "text-slate-400" : "text-slate-500"}`}
+                    >
+                      {field.replace("_", " ")}
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={newMeasurement[field]}
+                      onChange={(e) =>
+                        setNewMeasurement({
+                          ...newMeasurement,
+                          [field]: e.target.value,
+                        })
+                      }
+                      className={`w-full px-3 py-2 rounded-lg border focus:outline-none ${darkMode ? "bg-slate-800/50 border-white/10 text-white" : "bg-white border-slate-200 text-slate-900"}`}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-4 mt-6 rounded-2xl font-bold text-white bg-indigo-500 hover:bg-indigo-600 transition-colors shadow-lg shadow-indigo-500/25"
+              >
+                Save Body Metrics
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Photo Modal */}
+      {isPhotoModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div
+            className={`w-full max-w-lg rounded-3xl p-6 shadow-2xl border ${darkMode ? "bg-slate-900 border-white/10" : "bg-white border-slate-200"}`}
+          >
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
+                  <Camera size={20} />
+                </div>
+                <h2
+                  className={`text-xl font-bold font-inter ${darkMode ? "text-white" : "text-slate-900"}`}
+                >
+                  Add Progress Photo
+                </h2>
+              </div>
+              <button
+                onClick={() => setPhotoModalOpen(false)}
+                className={`p-2 rounded-lg ${darkMode ? "hover:bg-white/10 text-slate-400" : "hover:bg-slate-100 text-slate-500"}`}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddPhoto} className="space-y-4">
+              <div>
+                <label
+                  className={`block text-xs font-bold mb-1.5 uppercase ${darkMode ? "text-slate-400" : "text-slate-500"}`}
+                >
+                  Select Photo
+                </label>
+                <div className="relative group">
+                  <input
+                    name="photo_file"
+                    required
+                    type="file"
+                    accept="image/*"
+                    className={`w-full px-4 py-2.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500/50 file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold ${darkMode ? "bg-slate-800/50 border-white/10 text-white file:bg-indigo-500/20 file:text-indigo-400" : "bg-white border-slate-200 text-slate-900 file:bg-indigo-50 file:text-indigo-700"}`}
+                  />
+                  <div
+                    className={`mt-2 text-[10px] ${darkMode ? "text-slate-500" : "text-slate-400"}`}
+                  >
+                    Accepted formats: JPG, PNG. Max size 16MB.
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label
+                  className={`block text-xs font-bold mb-1.5 uppercase ${darkMode ? "text-slate-400" : "text-slate-500"}`}
+                >
+                  Notes
+                </label>
+                <textarea
+                  name="notes"
+                  rows="3"
+                  placeholder="How do you feel today?"
+                  className={`w-full px-4 py-2.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${darkMode ? "bg-slate-800/50 border-white/10 text-white" : "bg-white border-slate-200 text-slate-900"}`}
+                ></textarea>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-4 mt-6 rounded-2xl font-bold text-white bg-indigo-500 hover:bg-indigo-600 transition-colors shadow-lg shadow-indigo-500/25"
+              >
+                Upload Progress
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Confirmation Modal */}
+      <CustomConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        type={confirmModal.type}
+        darkMode={darkMode}
+      />
     </div>
   );
 }

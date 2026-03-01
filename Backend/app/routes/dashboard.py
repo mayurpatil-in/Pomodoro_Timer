@@ -144,8 +144,37 @@ def get_dashboard_summary():
                 for g in sorted(active_goals, key=lambda g: g.is_pinned, reverse=True)[:4]
             ]
         }
-    except Exception:
+
+        # For Productivity Score
+        start_of_today_local_naive = datetime(current_year, current_month, date_obj.day)
+        end_of_today_local_naive = start_of_today_local_naive + timedelta(days=1)
+        
+        start_of_today_utc_for_goals = start_of_today_local_naive.replace(tzinfo=timezone.utc)
+        end_of_today_utc_for_goals = end_of_today_local_naive.replace(tzinfo=timezone.utc)
+
+        goals_completed_today = sum(
+            1 for g in all_goals 
+            if g.status == 'done' and g.completed_at 
+            and start_of_today_utc_for_goals <= g.completed_at.replace(tzinfo=timezone.utc) < end_of_today_utc_for_goals
+        )
+        
+        goal_steps_completed_today = 0
+        from app.models import GoalStep
+        from app import db
+        today_steps = db.session.query(GoalStep)\
+            .join(Goal, Goal.id == GoalStep.goal_id)\
+            .filter(Goal.user_id == user_id)\
+            .filter(GoalStep.done == True)\
+            .filter(GoalStep.completed_at >= start_of_today_utc_for_goals)\
+            .filter(GoalStep.completed_at < end_of_today_utc_for_goals)\
+            .count()
+        goal_steps_completed_today = today_steps
+
+    except Exception as e:
+        print(f"Goal generation error: {e}")
         goals_data = {'total': 0, 'active': 0, 'done': 0, 'streaks': [], 'recent_active': []}
+        goals_completed_today = 0
+        goal_steps_completed_today = 0
 
     # ── 9. Interview Pipeline Summary ─────────────────────────────────────────
     try:
@@ -203,6 +232,17 @@ def get_dashboard_summary():
     except Exception:
         projects_data = {'total': 0, 'active': 0, 'recent': []}
 
+    # ── 11. Productivity Score Calculation ─────────────────────────────────────
+    routine_completed_count = sum(1 for e in routine_entries if e.get('completed', False))
+    productivity_points = (
+        (today_pomodoros * 15) + 
+        (routine_completed_count * 5) + 
+        (goal_steps_completed_today * 20) + 
+        (goals_completed_today * 50)
+    )
+    productivity_target = 100 # Configurable target
+    productivity_score = min(int((productivity_points / productivity_target) * 100), 100)
+
     return jsonify({
         'tasks': tasks_data,
         'today_pomodoros': today_pomodoros,
@@ -214,4 +254,15 @@ def get_dashboard_summary():
         'goals': goals_data,
         'interviews': interviews_data,
         'projects': projects_data,
+        'productivity': {
+            'score': productivity_score,
+            'points': productivity_points,
+            'target': productivity_target,
+            'breakdown': {
+                'pomodoros': today_pomodoros,
+                'routine_items': routine_completed_count,
+                'goal_steps': goal_steps_completed_today,
+                'goals_completed': goals_completed_today
+            }
+        }
     }), 200

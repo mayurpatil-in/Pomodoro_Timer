@@ -200,6 +200,59 @@ class GymGoal(db.Model):
     target_workouts_per_week = db.Column(db.Integer, nullable=False, default=3)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
+class GymWorkoutTemplate(db.Model):
+    __tablename__ = 'gym_workout_templates'
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
+    name = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    exercises = db.relationship('GymTemplateExercise', backref='template', lazy='dynamic', cascade='all, delete-orphan')
+
+class GymTemplateExercise(db.Model):
+    __tablename__ = 'gym_template_exercises'
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    template_id = db.Column(db.String(36), db.ForeignKey('gym_workout_templates.id'), nullable=False)
+    name = db.Column(db.String(255), nullable=False)
+    muscle_group = db.Column(db.String(50), nullable=True)
+    sets = db.Column(db.Integer, nullable=False, default=1)
+    reps = db.Column(db.Integer, nullable=False, default=1)
+    weight = db.Column(db.Float, nullable=False, default=0.0)
+
+class GymBodyMeasurement(db.Model):
+    __tablename__ = 'gym_body_measurements'
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
+    date = db.Column(db.String(20), nullable=False)  # YYYY-MM-DD
+    weight = db.Column(db.Float, nullable=True)
+    height = db.Column(db.Float, nullable=True)  # in cm
+    bmi = db.Column(db.Float, nullable=True)
+    body_fat = db.Column(db.Float, nullable=True)
+    neck = db.Column(db.Float, nullable=True)
+    chest = db.Column(db.Float, nullable=True)
+    waist = db.Column(db.Float, nullable=True)
+    hips = db.Column(db.Float, nullable=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    __table_args__ = (db.UniqueConstraint('user_id', 'date', name='uq_user_measurement_date'),)
+
+class GymPersonalRecord(db.Model):
+    __tablename__ = 'gym_personal_records'
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
+    exercise_name = db.Column(db.String(255), nullable=False)
+    max_weight = db.Column(db.Float, nullable=False, default=0.0)
+    max_reps = db.Column(db.Integer, nullable=False, default=1)
+    achieved_at = db.Column(db.String(20), nullable=False)  # YYYY-MM-DD
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+class GymProgressPhoto(db.Model):
+    __tablename__ = 'gym_progress_photos'
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
+    date = db.Column(db.String(20), nullable=False)  # YYYY-MM-DD
+    image_url = db.Column(db.String(500), nullable=False)
+    notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
 
 class Project(db.Model):
     __tablename__ = 'projects'
@@ -306,6 +359,7 @@ class Goal(db.Model):
     image_url = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    completed_at = db.Column(db.DateTime, nullable=True)
 
     steps = db.relationship('GoalStep', backref='goal', lazy='dynamic', cascade='all, delete-orphan', order_by='GoalStep.created_at')
     
@@ -329,3 +383,4 @@ class GoalStep(db.Model):
     is_milestone = db.Column(db.Boolean, default=False, nullable=False)
     deadline = db.Column(db.String(20), nullable=True)   # YYYY-MM-DD
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    completed_at = db.Column(db.DateTime, nullable=True)

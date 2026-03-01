@@ -56,6 +56,7 @@ import { CSS } from "@dnd-kit/utilities";
 const WIDGET_COLS = {
   "stat-pomodoros": "col-span-1",
   "stat-focus": "col-span-1",
+  "stat-productivity": "col-span-1",
   "stat-tasks": "col-span-1",
   "stat-goal-ring": "col-span-1",
   timer: "sm:col-span-2 lg:col-span-2",
@@ -74,6 +75,7 @@ const WIDGET_COLS = {
 const DEFAULT_LAYOUT = [
   "stat-pomodoros",
   "stat-focus",
+  "stat-productivity",
   "stat-tasks",
   "stat-goal-ring",
   "timer",
@@ -278,6 +280,11 @@ export default function Dashboard({ darkMode }) {
     active: 0,
     recent: [],
   });
+  const [productivityData, setProductivityData] = useState({
+    score: 0,
+    points: 0,
+    target: 100,
+  });
 
   // ── Load preferences ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -322,6 +329,7 @@ export default function Dashboard({ darkMode }) {
           if (data.goals) setGoalsData(data.goals);
           if (data.interviews) setInterviewsData(data.interviews);
           if (data.projects) setProjectsData(data.projects);
+          if (data.productivity) setProductivityData(data.productivity);
         })
         .catch(console.error);
     }
@@ -406,6 +414,87 @@ export default function Dashboard({ darkMode }) {
             colorClass="bg-rose-500"
             darkMode={darkMode}
           />
+        );
+      case "stat-productivity":
+        return (
+          <div
+            key={id}
+            className={`flex items-center justify-between p-5 rounded-2xl border h-full transition-all hover:shadow-lg ${
+              darkMode
+                ? "bg-slate-900/40 border-white/5 shadow-black/20"
+                : "bg-white border-slate-100 shadow-slate-200/50"
+            }`}
+          >
+            <div className="flex flex-col h-full justify-between">
+              <div>
+                <h3
+                  className={`text-xs font-semibold tracking-wider uppercase mb-1 flex items-center gap-1.5 ${
+                    darkMode ? "text-slate-400" : "text-slate-500"
+                  }`}
+                >
+                  <Rocket size={14} className="text-amber-500" />
+                  Productivity
+                </h3>
+                <div
+                  className={`text-3xl font-bold font-inter tracking-tight flex items-baseline gap-1.5 ${
+                    darkMode ? "text-white" : "text-slate-900"
+                  }`}
+                >
+                  {productivityData.score}
+                  <span
+                    className={`text-sm font-outfit uppercase tracking-wider font-semibold ${darkMode ? "text-slate-500" : "text-slate-400"}`}
+                  >
+                    Score
+                  </span>
+                </div>
+              </div>
+              <div className="mt-auto">
+                <p
+                  className={`text-[10px] uppercase font-semibold font-outfit ${darkMode ? "text-slate-400" : "text-slate-500"}`}
+                >
+                  <span
+                    className={darkMode ? "text-amber-400" : "text-amber-600"}
+                  >
+                    {productivityData.points}
+                  </span>{" "}
+                  pts today
+                </p>
+              </div>
+            </div>
+
+            <div className="relative w-16 h-16 flex-shrink-0">
+              <svg
+                className="w-full h-full -rotate-90 transform"
+                viewBox="0 0 100 100"
+              >
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="42"
+                  fill="transparent"
+                  strokeWidth="8"
+                  className={darkMode ? "stroke-slate-800" : "stroke-slate-100"}
+                />
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="42"
+                  fill="transparent"
+                  strokeWidth="8"
+                  strokeDasharray="264"
+                  strokeDashoffset={264 - (productivityData.score / 100) * 264}
+                  className={`transition-all duration-1000 ${
+                    productivityData.score >= 100
+                      ? "stroke-emerald-500"
+                      : productivityData.score >= 50
+                        ? "stroke-amber-500"
+                        : "stroke-rose-500"
+                  }`}
+                  strokeLinecap="round"
+                />
+              </svg>
+            </div>
+          </div>
         );
       case "stat-goal-ring":
         return (

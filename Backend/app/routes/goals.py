@@ -140,7 +140,12 @@ def update_goal(goal_id):
     if 'priority' in data and data['priority'] in ('low', 'medium', 'high'):
         goal.priority = data['priority']
     if 'status' in data and data['status'] in ('todo', 'inprogress', 'done'):
-        goal.status = data['status']
+        new_status = data['status']
+        if new_status == 'done' and goal.status != 'done':
+            goal.completed_at = datetime.now(timezone.utc)
+        elif new_status != 'done':
+            goal.completed_at = None
+        goal.status = new_status
     if 'category' in data:
         goal.category = data['category'] or None
     if 'color' in data:
@@ -280,6 +285,10 @@ def update_step(goal_id, step_id):
             else:
                 goal.streak_count = 1
                 goal.last_streak_date = today_str
+            step.completed_at = datetime.now(timezone.utc)
+        elif not new_done:
+            step.completed_at = None
+            
         step.done = new_done
     if 'text' in data and data['text'].strip():
         step.text = data['text'].strip()
